@@ -52,19 +52,6 @@ static auto find_pattern_internal(uptr start, uptr end, const char *pattern) -> 
     return nullptr;
 }
 
-//
-struct mapped_object {
-    const char *name;
-    int         fd;
-    void *      address;
-    u32         size;
-    i32         rebase;
-};
-
-// storage for mmapped objects so that we can cleanup
-// or easily find the rebase needed when we sigsearch
-std::vector<mapped_object> mapped_objects;
-
 static auto find_module_code_section(const char *module_name) -> std::pair<uptr, uptr> {
     auto module = Signature::resolve_library(module_name);
 
@@ -81,35 +68,21 @@ static auto find_module_code_section(const char *module_name) -> std::pair<uptr,
     assert(lm);
     assert(lm->l_name);
 
-    mapped_object *found = nullptr;
+    // hack becuase the elf loader doesnt map the string table
+    auto fd = open(lm->l_name, O_RDONLY);
+    defer(close(fd));
+    assert(fd != -1);
 
-    for (auto &o : mapped_objects) {
-        if (strcmp(lm->l_name, o.name) == 0) {
-            found = &o;
-            break;
-        }
-    }
+    auto size    = lseek(fd, 0, SEEK_END);
+    auto address = mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    assert(address);
+    defer(munmap(address, size));
 
-    if (found == nullptr) {
-        mapped_object o;
-        o.name = lm->l_name;
-        o.fd   = open(lm->l_name, O_RDONLY);
-        assert(o.fd != -1);
-        o.size    = lseek(o.fd, 0, SEEK_END);
-        o.address = mmap(nullptr, o.size, PROT_READ, MAP_PRIVATE, o.fd, 0);
-        assert(o.address);
-        o.rebase = (i32)(-(u32)o.address) + lm->l_addr;
-
-        mapped_objects.push_back(o);
-
-        found = &(mapped_objects[mapped_objects.size() - 1]);
-    }
-
-    auto module_address = reinterpret_cast<uptr>(found->address);
-    auto ehdr           = (Elf32_Ehdr *)module_address;
+    auto module_address = reinterpret_cast<uptr>(address);
+    auto ehdr           = reinterpret_cast<Elf32_Ehdr *>(module_address);
     assert(ehdr);
 
-    auto shdr = (Elf32_Shdr *)(module_address + ehdr->e_shoff);
+    auto shdr = reinterpret_cast<Elf32_Shdr *>(module_address + ehdr->e_shoff);
     assert(shdr);
 
     auto strhdr = &shdr[ehdr->e_shstrndx];
@@ -119,7 +92,7 @@ static auto find_module_code_section(const char *module_name) -> std::pair<uptr,
     int   strtab_size = 0;
 
     if (strhdr->sh_type == 3) {
-        strtab = (char *)(module_address + strhdr->sh_offset);
+        strtab = reinterpret_cast<char *>(module_address + strhdr->sh_offset);
         assert(strtab);
 
         strtab_size = strhdr->sh_size;
@@ -142,26 +115,29 @@ static auto find_module_code_section(const char *module_name) -> std::pair<uptr,
 
 auto Signature::resolve_library(const char *name) -> void * {
 #if blueplatform_windows()
+    // TODO: actually check directories for this dll instead of
+    // letting the loader do the work
     char buffer[1024];
     snprintf(buffer, 1023, "%s.dll", name);
+
     auto handle = GetModuleHandleA(buffer);
     if (handle) return handle;
     assert(0);
+
 #elif blueplatform_linux()
     char found[1024];
     auto search_directory = [](const char *to_find, const char *dirname, char *out) -> bool {
         auto d = opendir(dirname);
         assert(d);
-        if (d) {
-            auto dir = readdir(d);
-            while (dir != nullptr) {
-                if (dir->d_type == DT_REG && strstr(dir->d_name, to_find) != nullptr && strstr(dir->d_name, ".so") != nullptr) {
-                    sprintf(out, "%s/%s", dirname, dir->d_name);
-                    return true;
-                }
-                dir = readdir(d);
+        defer(closedir(d));
+
+        auto dir = readdir(d);
+        while (dir != nullptr) {
+            if (dir->d_type == DT_REG && strstr(dir->d_name, to_find) != nullptr && strstr(dir->d_name, ".so") != nullptr) {
+                sprintf(out, "%s/%s", dirname, dir->d_name);
+                return true;
             }
-            closedir(d);
+            dir = readdir(d);
         }
         return false;
     };
@@ -193,7 +169,6 @@ auto Signature::resolve_import(void *handle, const char *name) -> void * {
 }
 
 auto Signature::find_pattern(const char *module_name, const char *pattern) -> u8 * {
-    iptr offset;
     auto code_section = find_module_code_section(module_name);
 
     return find_pattern_internal(code_section.first, code_section.second, pattern);

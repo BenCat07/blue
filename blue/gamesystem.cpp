@@ -15,10 +15,10 @@ GameSystem::~GameSystem() {
 }
 
 auto GameSystem::add_all() -> void {
-    Signature::pattern add_pattern("client",
-                                   "E8 ? ? ? ? 83 C4 04 8B 76 04 85 F6 75 D0",
-                                   "E8 ? ? ? ? 8B 5B 04 85 DB 75 C1",
-                                   "E8 ? ? ? ? 8B 7F 04 85 FF 75 A1");
+    auto add_pattern = Signature::pattern("client",
+                                          "E8 ? ? ? ? 83 C4 04 8B 76 04 85 F6 75 D0",
+                                          "E8 ? ? ? ? 8B 5B 04 85 DB 75 C1",
+                                          "E8 ? ? ? ? 8B 7F 04 85 FF 75 A1");
 
     auto add_fn = Signature::resolve_callgate(add_pattern.find());
     assert(add_fn);

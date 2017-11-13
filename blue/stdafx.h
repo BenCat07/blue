@@ -1,6 +1,7 @@
 #pragma once
 
 #include "blue_platform.h"
+#include "defer.h"
 
 #include <cassert>
 #include <cstdarg>
