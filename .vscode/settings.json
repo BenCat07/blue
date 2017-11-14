@@ -12,6 +12,12 @@
         "new": "cpp",
         "type_traits": "cpp",
         "typeinfo": "cpp",
-        "utility": "cpp"
+        "utility": "cpp",
+        "functional": "cpp",
+        "memory": "cpp",
+        "tuple": "cpp",
+        "xmemory0": "cpp",
+        "xtr1common": "cpp",
+        "xutility": "cpp"
     }
 }

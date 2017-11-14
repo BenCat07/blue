@@ -1,3 +1,4 @@
+#pragma once
 // platform helpers
 
 // we define both macros and constexpr functions
@@ -6,7 +7,6 @@
 
 // HOWEVER: there are situations where a macro check makes more sense
 // e.g.
-// GameSystem::add_all()
 
 // clang-format off
 #define blueplatform_clang() false

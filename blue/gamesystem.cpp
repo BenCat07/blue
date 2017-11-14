@@ -29,6 +29,10 @@ auto GameSystem::add_all() -> void {
         system->init();
     }
 
+    for (auto system = head; system != nullptr; system = system->next) {
+        system->post_init();
+    }
+
     // reset the list
     head = nullptr;
 }

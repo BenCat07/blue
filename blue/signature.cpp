@@ -160,7 +160,7 @@ auto Signature::resolve_library(const char *name) -> void * {
 }
 auto Signature::resolve_import(void *handle, const char *name) -> void * {
 #if blueplatform_windows()
-    return reinterpret_cast<void *>(GetProcAddress(handle, name));
+    return reinterpret_cast<void *>(GetProcAddress(static_cast<HMODULE>(handle), name));
 #elif blueplatform_linux()
     return reinterpret_cast<void *>(dlsym(handle, name));
 #elif blueplatform_osx()

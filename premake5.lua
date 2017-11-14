@@ -34,7 +34,13 @@ workspace "Blue"
         language "C++"
         targetdir "bin/%{cfg.buildcfg}"
 
-        pchheader "blue/stdafx.h"
-        pchsource "blue/stdafx.cpp"
+		filter "system:linux"
+			pchheader "blue/stdafx.h"
+		filter "system:windows"
+			pchheader "stdafx.h"
+		
+		filter {}
+
+		pchsource "blue/stdafx.cpp"
 
         files { "blue/*.h", "blue/*.cpp" }
