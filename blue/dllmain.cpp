@@ -1,7 +1,18 @@
 #include "stdafx.h"
 
 #if blueplatform_windows()
-BOOL APIENTRY dllmain(HMODULE this_module, int reason, void *reserved) {
+
+extern auto __stdcall blue_gamesystem_send_process_attach(void *a) -> void;
+
+__declspec(dllexport) BOOL APIENTRY DllMain(HMODULE hModule,
+                                            DWORD   reason,
+                                            LPVOID  lpReserved) {
+    switch (reason) {
+    case DLL_PROCESS_ATTACH:
+        CreateThread(nullptr, 0, (LPTHREAD_START_ROUTINE)&blue_gamesystem_send_process_attach, hModule, 0, nullptr);
+        break;
+    }
+
     return true;
 }
 #else
