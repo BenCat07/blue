@@ -20,6 +20,10 @@ public:
     auto operator-> () -> T *& {
         return value;
     }
+
+    auto get() -> T *& {
+        return value;
+    }
 };
 
 template <typename T>

@@ -27,17 +27,17 @@ inline auto get_func(void *inst, u32 index, u32 offset) -> F {
 }
 
 template <typename>
-class func;
+class Func;
 
 template <typename object_type, typename ret, typename... args>
-class func<ret (object_type::*)(args...)> {
+class Func<ret (object_type::*)(args...)> {
 
     using function_type = ret(__thiscall *)(object_type *, args...);
     function_type f;
 
 public:
     // TODO: do any other platforms have this offset and is it useful?
-    func(object_type *instance,
+    Func(object_type *instance,
          u32          index_windows,
          u32          index_linux,
          u32          index_osx,
@@ -69,4 +69,4 @@ public:
 #define return_virtual_func(name, windows, linux, osx, off, ...) \
     using c = std::remove_reference<decltype(*this)>::type;      \
     using t = decltype(&c::name);                                \
-    return VFunc::func<t>(this, windows, linux, osx, off).invoke(this, __VA_ARGS__)
+    return VFunc::Func<t>(this, windows, linux, osx, off).invoke(this, __VA_ARGS__)

@@ -15,12 +15,12 @@ auto find_pattern(const char *module, const char *pattern, u32 offset) -> T {
 }
 auto resolve_callgate(void *address) -> void *;
 
-class pattern {
+class Pattern {
     const char *module;
     const char *signature;
 
 public:
-    pattern(const char *module,
+    Pattern(const char *module,
             const char *signature_windows,
             const char *signature_linux,
             const char *signature_osx)
