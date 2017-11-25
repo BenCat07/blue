@@ -39,3 +39,8 @@ Makefile
 obj/
 .vs/
 .vscode/
+*.*~
+*~
+packages/
+#*#
+#*.*#
