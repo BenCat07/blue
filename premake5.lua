@@ -26,6 +26,7 @@ workspace "Blue"
             toolset "clang"
         filter "system:windows"
             toolset "msc-v141"
+			buildoptions{ "-Bv" }
 		filter {}
 
         location "blue"
@@ -35,12 +36,12 @@ workspace "Blue"
         targetdir "bin/%{cfg.buildcfg}"
 
 		filter "system:linux"
-			pchheader "blue/stdafx.h"
+			pchheader "blue/stdafx.hh"
 		filter "system:windows"
-			pchheader "stdafx.h"
+			pchheader "stdafx.hh"
 		
 		filter {}
 
-		pchsource "blue/stdafx.cpp"
+		pchsource "blue/stdafx.cc"
 
-        files { "blue/*.h", "blue/*.cpp" }
+        files { "blue/*.hh", "blue/*.cc" }

@@ -3,7 +3,7 @@
 #include <utility>
 #include <vector>
 
-#include "types.h"
+#include "types.hh"
 
 namespace TF {
 class Netvar {
@@ -35,7 +35,8 @@ class Netvar {
     uptr offset;
 
     // used internally for registering
-    Netvar *                  next;
+    Netvar *next;
+
     std::vector<const char *> tables;
 
     auto add_to_init_list() -> void;

@@ -1,8 +1,8 @@
-#include "stdafx.h"
+#include "stdafx.hh"
 
-#include "entity.h"
+#include "entity.hh"
 
-#include "netvar.h"
+#include "netvar.hh"
 
 using namespace TF;
 

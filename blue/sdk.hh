@@ -1,14 +1,16 @@
 #pragma once
 
-#include "types.h"
-#include "vfunc.h"
+#include "types.hh"
+#include "vfunc.hh"
 
-#include "datatable.h"
-#include "entity.h"
+#include "datatable.hh"
+#include "entity.hh"
 
 namespace TF {
 class UserCmd {
     virtual ~UserCmd(){};
+
+public:
     int          command_number;
     int          tick_count;
     Math::Vector viewangles;
@@ -54,12 +56,21 @@ public:
 
 class EntList {
 public:
-    auto get_entity() -> Entity * {
-        return_virtual_func(get_entity, 3, 0, 0, 0);
+    auto get_networkable() {
+    }
+    auto get_entity(u32 index) -> Entity * {
+        return_virtual_func(get_entity, 3, 0, 0, 0, index);
     }
 
     auto get_max_entity() -> u32 {
         return_virtual_func(get_max_entity, 6, 0, 0, 0);
+    }
+};
+
+class Input {
+public:
+    auto get_user_cmd(u32 sequence_number) -> UserCmd * {
+        return_virtual_func(get_user_cmd, 8, 8, 8, 0, sequence_number);
     }
 };
 } // namespace TF

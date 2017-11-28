@@ -2,7 +2,7 @@
 
 #include <cassert>
 
-#include "types.h"
+#include "types.hh"
 
 // TODO: should this be namespace TF?
 namespace TF {
@@ -19,11 +19,11 @@ public:
 };
 
 class RecvProp {
-    typedef void (*RecvVarProxyFn)(const RecvProxyData *data, void *this_ptr, void *out);
-    typedef void (*ArrayLengthRecvProxyFn)(void *this_ptr, int id, int cur_length);
-    typedef void (*DataTableRecvVarProxyFn)(const RecvProp *prop, void **out, void *data, int id);
-
 public:
+    using RecvVarProxyFn          = auto(const RecvProxyData *data, void *this_ptr, void *out) -> void;
+    using ArrayLengthRecvProxyFn  = auto(void *this_ptr, int id, int cur_length) -> void;
+    using DataTableRecvVarProxyFn = auto(const RecvProp *prop, void **out, void *data, int id) -> void;
+
     RecvProp() = delete;
 
     auto get_num_elements() const {
@@ -103,11 +103,11 @@ private:
     const void *extra_data;
 
     // If this is an array (DPT_Array).
-    RecvProp *             array_prop;
-    ArrayLengthRecvProxyFn array_length_proxy;
+    RecvProp *              array_prop;
+    ArrayLengthRecvProxyFn *array_length_proxy;
 
-    RecvVarProxyFn          proxy_fn;
-    DataTableRecvVarProxyFn datatable_proxy_fn; // For RDT_DataTable.
+    RecvVarProxyFn *         proxy_fn;
+    DataTableRecvVarProxyFn *datatable_proxy_fn; // For RDT_DataTable.
 
     RecvTable *data_table; // For RDT_DataTable.
     int        offset;

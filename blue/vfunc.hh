@@ -3,8 +3,8 @@
 #include <functional>
 #include <type_traits>
 
-#include "blue_platform.h"
-#include "types.h"
+#include "blue_platform.hh"
+#include "types.hh"
 
 // helpers for calling virtual functions
 namespace VFunc {
@@ -66,6 +66,10 @@ public:
 
 } // namespace VFunc
 
+// macro for easier definitions of wrapper calls
+// name is the name of the function
+// off is the windows offset
+// varags are the arguments of the parent function
 #define return_virtual_func(name, windows, linux, osx, off, ...) \
     using c = std::remove_reference<decltype(*this)>::type;      \
     using t = decltype(&c::name);                                \

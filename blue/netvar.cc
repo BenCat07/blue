@@ -1,8 +1,8 @@
-#include "stdafx.h"
+#include "stdafx.hh"
 
-#include "interface.h"
-#include "netvar.h"
-#include "sdk.h"
+#include "interface.hh"
+#include "netvar.hh"
+#include "sdk.hh"
 
 using namespace TF;
 

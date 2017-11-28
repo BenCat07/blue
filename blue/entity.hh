@@ -1,6 +1,6 @@
 #pragma once
 
-#include "vfunc.h"
+#include "vfunc.hh"
 
 namespace TF {
 class Entity {

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "types.h"
-#include "vfunc.h"
+#include "types.hh"
+#include "vfunc.hh"
 
 #include <algorithm>
 #include <utility>
