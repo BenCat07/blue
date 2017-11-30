@@ -6,11 +6,12 @@
 #include "hooks.hh"
 #include "interface.hh"
 #include "netvar.hh"
+#include "player.hh"
 #include "sdk.hh"
 #include "vfunc.hh"
 
 class Blue_Core : public GameSystem {
-    bool inted = false;
+    bool inited = false;
 
 public:
     auto init() -> bool override {
@@ -24,7 +25,7 @@ public:
         IFace<TF::Engine>().set_from_interface("engine", "VEngineClient");
         IFace<TF::EntList>().set_from_interface("client", "VClientEntityList");
         IFace<TF::Input>().set_from_pointer(**reinterpret_cast<TF::Input ***>(
-            VFunc::get_func<u8 *>(IFace<TF::Client>().get(), 5, 0) + 0x2));
+            VFunc::get_func<u8 *>(IFace<TF::Client>().get(), 15, 0) + 0x2));
     }
     auto process_attach() -> void {
         Log::msg("process_attach()");
@@ -34,7 +35,8 @@ public:
         // gamesystems one
         TF::Netvar::init_all();
 
-        inted = true;
+        // at this point we are now inited and ready to go!
+        inited = true;
     }
 
     auto shutdown() -> void override { Log::msg("shutdown()"); }
@@ -52,6 +54,20 @@ public:
     // and be perfectly ok
     // HOWEVER: it might be better to do this at frame_end()
     auto update([[maybe_unused]] float frametime) -> void override {
+        if (inited != true || IFace<TF::Engine>()->in_game() != true) return;
+
+        // for (const auto &entity : IFace<TF::EntList>()->get_range()) {
+        //     if (entity->is_valid() != true) continue;
+
+        //     if (auto *player = entity->to_player()) {
+        //         Log::msg("%d", player->health());
+        //     }
+        // }
+
+        if (auto *local = TF::Player::local()) {
+            auto origin = local->origin();
+            Log::msg("(%f, %f, %f)", origin.x, origin.y, origin.z);
+        }
     }
 
     Blue_Core() {

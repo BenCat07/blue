@@ -45,3 +45,27 @@ workspace "Blue"
 		pchsource "blue/stdafx.cc"
 
         files { "blue/*.hh", "blue/*.cc" }
+
+    
+	project "boverlay"
+	    filter "system:linux"
+            toolset "clang"
+        filter "system:windows"
+            toolset "msc-v141"
+            buildoptions{ "-Bv" }
+            
+        location "boverlay"
+
+        kind "StaticLib"
+        language "C++"
+        targetdir "lib/%{cfg.buildcfg}"
+
+        filter "system:linux"
+			pchheader "boverlay/stdafx.hh"
+		filter "system:windows"
+            pchheader "stdafx.hh"
+            
+        filter {}
+
+        pchsource "boverlay/stdafx.cc"
+        files { "boverlay/*.hh", "boverlay/*.cc" }

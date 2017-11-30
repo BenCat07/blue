@@ -5,6 +5,7 @@
 
 #include "datatable.hh"
 #include "entity.hh"
+#include "interface.hh"
 
 namespace TF {
 class UserCmd {
@@ -45,6 +46,8 @@ public:
 
 class Engine {
 public:
+    Engine() = delete;
+
     auto get_last_timestamp() -> float {
         return_virtual_func(get_last_timestamp, 15, 15, 15, 0);
     }
@@ -52,12 +55,20 @@ public:
     auto time() -> float {
         return_virtual_func(time, 14, 14, 14, 0);
     }
+
+    auto in_game() -> bool {
+        return_virtual_func(in_game, 26, 26, 26, 0);
+    }
+
+    auto local_player_index() -> u32 {
+        return_virtual_func(local_player_index, 12, 12, 12, 0);
+    }
 };
 
 class EntList {
 public:
-    auto get_networkable() {
-    }
+    EntList() = delete;
+
     auto get_entity(u32 index) -> Entity * {
         return_virtual_func(get_entity, 3, 0, 0, 0, index);
     }
@@ -65,10 +76,58 @@ public:
     auto get_max_entity() -> u32 {
         return_virtual_func(get_max_entity, 6, 0, 0, 0);
     }
+
+    class EntityRange {
+        EntList *parent;
+
+    public:
+        class Iterator {
+            u32      index;
+            EntList *parent;
+
+        public:
+            Iterator(EntList *parent) : index(0), parent(parent) {}
+            explicit Iterator(u32 index, EntList *parent)
+                : index(index), parent(parent) {}
+
+            auto &operator++() {
+                ++index;
+                return *this;
+            }
+
+            auto operator*() {
+                return parent->get_entity(index);
+            }
+
+            auto operator==(const Iterator &b) {
+                return index == b.index;
+            }
+
+            auto operator!=(const Iterator &b) {
+                return !(*this == b);
+            }
+        };
+
+        EntityRange(EntList *parent) : parent(parent) {}
+
+        auto begin() {
+            return Iterator(parent);
+        }
+
+        auto end() {
+            return Iterator(parent->get_max_entity(), parent);
+        }
+    };
+
+    auto get_range() {
+        return EntityRange(this);
+    }
 };
 
 class Input {
 public:
+    Input() = delete;
+
     auto get_user_cmd(u32 sequence_number) -> UserCmd * {
         return_virtual_func(get_user_cmd, 8, 8, 8, 0, sequence_number);
     }

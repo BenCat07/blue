@@ -4,8 +4,11 @@
 #include <cmath>
 #include <float.h>
 
+#undef max
+#undef min
+
 namespace Math {
-const auto PI = 3.14159265358979323846f;
+constexpr auto PI = 3.14159265358979323846f;
 
 inline auto to_radians(float x) {
     return x * (PI / 180.0f);

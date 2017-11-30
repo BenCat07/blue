@@ -1,5 +1,6 @@
 #pragma once
 
+#include "types.hh"
 #include "vfunc.hh"
 
 namespace TF {
@@ -10,7 +11,10 @@ public:
     // helper functions
     auto is_valid() -> bool;
 
-    // netvars
-    auto health() -> int &;
+    // upcasts
+    auto to_player() -> class Player *;
+
+    // virtual functions
+    auto client_class() -> struct ClientClass *;
 };
 } // namespace TF
