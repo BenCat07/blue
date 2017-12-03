@@ -52,13 +52,14 @@ workspace "Blue"
             toolset "clang"
         filter "system:windows"
             toolset "msc-v141"
-            buildoptions{ "-Bv" }
+            --buildoptions{ "-Bv" }
             
         location "boverlay"
 
-        kind "StaticLib"
+        kind "Sharedlib"
         language "C++"
-        targetdir "lib/%{cfg.buildcfg}"
+		targetdir "bin/%{cfg.buildcfg}"
+		implibdir "lib/%{cfg.buildcfg}"
 
         filter "system:linux"
 			pchheader "boverlay/stdafx.hh"
@@ -66,6 +67,28 @@ workspace "Blue"
             pchheader "stdafx.hh"
             
         filter {}
-
+			
         pchsource "boverlay/stdafx.cc"
-        files { "boverlay/*.hh", "boverlay/*.cc" }
+		
+        files { "boverlay/*.hh", "boverlay/*.cc" }	
+		filter {}
+
+	project "testbed"
+	    filter "system:linux"
+            toolset "clang"
+        filter "system:windows"
+            toolset "msc-v141"
+            --buildoptions{ "-Bv" }
+
+        filter {}
+
+        location "testbed"
+		libdirs{"lib/%{cfg.buildcfg}"}
+
+        kind "ConsoleApp"
+        language "C++"
+		targetdir "bin/%{cfg.buildcfg}"
+			
+        files { "testbed/*.hh", "testbed/*.cc" }	
+		filter {}
+
