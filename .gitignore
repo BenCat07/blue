@@ -49,3 +49,5 @@ packages/
 *.user
 
 lib/Debug/
+
+compile_commands/

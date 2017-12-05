@@ -15,12 +15,23 @@ GameSystem::~GameSystem() {
 }
 
 auto GameSystem::add_all() -> void {
-    auto add_pattern = Signature::Pattern("client",
-                                          "E8 ? ? ? ? 83 C4 04 8B 76 04 85 F6 75 D0",
-                                          "E8 ? ? ? ? 8B 5B 04 85 DB 75 C1",
-                                          "E8 ? ? ? ? 8B 7F 04 85 FF 75 A1");
+    using AddFn = void (*)(IGameSystem *);
+    AddFn add_fn;
 
-    auto add_fn = Signature::resolve_callgate(add_pattern.find());
+    if constexpr (BluePlatform::windows()) {
+        add_fn = reinterpret_cast<AddFn>(
+            Signature::resolve_callgate(
+                Signature::find_pattern("client", "E8 ? ? ? ? 83 C4 04 8B 76 04 85 F6 75 D0")));
+    } else if constexpr (BluePlatform::linux()) {
+        add_fn = reinterpret_cast<AddFn>(
+            Signature::resolve_callgate(
+                Signature::find_pattern("client", "E8 ? ? ? ? 8B 5B 04 85 DB 75 C1")));
+    } else if constexpr (BluePlatform::osx()) {
+        add_fn = reinterpret_cast<AddFn>(
+            Signature::resolve_callgate(
+                Signature::find_pattern("client", "E8 ? ? ? ? 8B 7F 04 85 FF 75 A1")));
+    }
+
     assert(add_fn);
 
     for (auto system = head; system != nullptr; system = system->next) {

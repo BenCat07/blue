@@ -1,10 +1,15 @@
+
+require("premake_modules/export-compile-commands")
+
 -- premake5.lua
 workspace "Blue"
     configurations { "Debug", "Release" }
     platforms { "x32" }
-	
-	filter "system:windows"
-		characterset "MBCS"
+    
+    filter "system:windows"
+        characterset "MBCS"
+
+    filter {}
 
     filter "platforms:x32"
         architecture "x32"
@@ -13,7 +18,7 @@ workspace "Blue"
         cppdialect "C++17"
     
         defines { "DEBUG" }
-		symbols "On"
+        symbols "On"
 
     filter "configurations:Release"
         cppdialect "C++17"
@@ -26,8 +31,8 @@ workspace "Blue"
             toolset "clang"
         filter "system:windows"
             toolset "msc-v141"
-			buildoptions{ "-Bv" }
-		filter {}
+            buildoptions{ "--driver-mode=cl -Bv" }
+        filter {}
 
         location "blue"
 
@@ -35,20 +40,20 @@ workspace "Blue"
         language "C++"
         targetdir "bin/%{cfg.buildcfg}"
 
-		filter "system:linux"
-			pchheader "blue/stdafx.hh"
-		filter "system:windows"
-			pchheader "stdafx.hh"
-		
-		filter {}
+        filter "system:linux"
+            pchheader "blue/stdafx.hh"
+        filter "system:windows"
+            pchheader "stdafx.hh"
+        
+        filter {}
 
-		pchsource "blue/stdafx.cc"
+        pchsource "blue/stdafx.cc"
 
         files { "blue/*.hh", "blue/*.cc" }
 
     
-	project "boverlay"
-	    filter "system:linux"
+    project "boverlay"
+        filter "system:linux"
             toolset "clang"
         filter "system:windows"
             toolset "msc-v141"
@@ -58,23 +63,23 @@ workspace "Blue"
 
         kind "Sharedlib"
         language "C++"
-		targetdir "bin/%{cfg.buildcfg}"
-		implibdir "lib/%{cfg.buildcfg}"
+        targetdir "bin/%{cfg.buildcfg}"
+        implibdir "lib/%{cfg.buildcfg}"
 
         filter "system:linux"
-			pchheader "boverlay/stdafx.hh"
-		filter "system:windows"
+            pchheader "boverlay/stdafx.hh"
+        filter "system:windows"
             pchheader "stdafx.hh"
             
         filter {}
-			
+            
         pchsource "boverlay/stdafx.cc"
-		
-        files { "boverlay/*.hh", "boverlay/*.cc" }	
-		filter {}
+        
+        files { "boverlay/*.hh", "boverlay/*.cc" }    
+        filter {}
 
-	project "testbed"
-	    filter "system:linux"
+    project "testbed"
+        filter "system:linux"
             toolset "clang"
         filter "system:windows"
             toolset "msc-v141"
@@ -83,12 +88,12 @@ workspace "Blue"
         filter {}
 
         location "testbed"
-		libdirs{"lib/%{cfg.buildcfg}"}
+        libdirs{"lib/%{cfg.buildcfg}"}
 
         kind "ConsoleApp"
         language "C++"
-		targetdir "bin/%{cfg.buildcfg}"
-			
-        files { "testbed/*.hh", "testbed/*.cc" }	
-		filter {}
+        targetdir "bin/%{cfg.buildcfg}"
+            
+        files { "testbed/*.hh", "testbed/*.cc" }    
+        filter {}
 

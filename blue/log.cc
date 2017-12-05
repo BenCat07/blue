@@ -11,9 +11,11 @@ auto Log::msg(const char *format, ...) -> void {
     vsnprintf(buffer, 1024, format, vlist);
     va_end(vlist);
 
-    using message_fn = void (*)(const char *format, ...);
+    using MessageFn = void (*)(const char *format, ...);
 
-    static auto msg_fn = (message_fn)Signature::resolve_import(Signature::resolve_library("tier0"), "Msg");
+    static auto msg_fn = (MessageFn)Signature::resolve_import(Signature::resolve_library("tier0"), "Msg");
 
     msg_fn("[Blue] %s\n", buffer);
+
+    printf("[Blue] %s\n", buffer);
 }

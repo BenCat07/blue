@@ -56,14 +56,6 @@ public:
     auto update([[maybe_unused]] float frametime) -> void override {
         if (inited != true || IFace<TF::Engine>()->in_game() != true) return;
 
-        // for (const auto &entity : IFace<TF::EntList>()->get_range()) {
-        //     if (entity->is_valid() != true) continue;
-
-        //     if (auto *player = entity->to_player()) {
-        //         Log::msg("%d", player->health());
-        //     }
-        // }
-
         if (auto *local = TF::Player::local()) {
             auto origin = local->origin();
             Log::msg("(%f, %f, %f)", origin.x, origin.y, origin.z);

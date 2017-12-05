@@ -4,15 +4,11 @@
 
 template <class Lambda>
 class AtScopeExit {
-    Lambda &m_lambda;
+    Lambda &l;
 
 public:
-    AtScopeExit(Lambda &action)
-        : m_lambda(action) {
-    }
-    ~AtScopeExit() {
-        m_lambda();
-    }
+    AtScopeExit(Lambda &action) : l(action) {}
+    ~AtScopeExit() { l(); }
 };
 
 #define Defer_INTERNAL2(lname, aname, ...)                       \
