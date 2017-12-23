@@ -2,20 +2,20 @@
 
 #ifdef _MSC_VER
 
+#include "overlay_draw.hh"
 #include "overlaywindow.hh"
 
-#include <Windows.h>
-#include <dwmapi.h>
-
-#include <gl/gl.h>
-#include <gl/glu.h>
-
+#include <cassert>
 #include <thread>
 
 #pragma comment(lib, "opengl32.lib")
 #pragma comment(lib, "dwmapi.lib")
 
-const char *overlay_class_name = "boverlay";
+static const char *overlay_class_name = "boverlay";
+
+static HINSTANCE get_this_module() {
+    return GetModuleHandleA(nullptr);
+}
 
 class OverlayWindow : public IOverlayWindow {
     HDC   hdc;
@@ -29,6 +29,8 @@ class OverlayWindow : public IOverlayWindow {
 
     Vector2 overlay_size;
 
+    IDrawManager *dm;
+
     // message handlers
     static LRESULT APIENTRY window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam);
     LRESULT                 overlay_proc(UINT message, WPARAM wparam, LPARAM lparam);
@@ -37,10 +39,12 @@ class OverlayWindow : public IOverlayWindow {
     bool init_gl();
 
 public:
-    OverlayWindow() : local(nullptr), target(nullptr), hdc(nullptr), hglrc(nullptr), overlay_size{0, 0} {}
+    OverlayWindow(IDrawManager *dm) : local(nullptr), target(nullptr), hdc(nullptr), hglrc(nullptr), overlay_size{0, 0}, frame_callback(nullptr), dm(dm) {}
 
     bool init() override;
     void shutdown() override;
+
+    void make_current() override { wglMakeCurrent(hdc, hglrc); }
 
     void set_target(void *t) override;
 
@@ -63,7 +67,7 @@ LRESULT APIENTRY OverlayWindow::window_proc(HWND hwnd, UINT message, WPARAM wpar
 LRESULT OverlayWindow::overlay_proc(UINT message, WPARAM wparam, LPARAM lparam) {
     switch (message) {
     case WM_CREATE: {
-        return 0;
+        break;
     }
     case WM_CLOSE: {
         DestroyWindow(local);
@@ -76,16 +80,30 @@ LRESULT OverlayWindow::overlay_proc(UINT message, WPARAM wparam, LPARAM lparam) 
         DeleteDC(hdc);
         ReleaseDC(local, hdc);
         PostQuitMessage(0);
-        UnregisterClass(overlay_class_name, GetModuleHandle(nullptr));
+        UnregisterClass(overlay_class_name, get_this_module());
+        break;
+    }
+    case WM_ERASEBKGND: {
+        return 0;
         break;
     }
     case WM_PAINT: {
         PAINTSTRUCT ps;
         BeginPaint(local, &ps);
+
+        while (glGetError() != GL_NO_ERROR) continue;
+
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
         glClear(GL_COLOR_BUFFER_BIT);
 
         // call out to the frame callback
-        frame_callback(frame_userdata);
+        if (frame_callback != nullptr) frame_callback(frame_userdata);
+
+        auto error = glGetError();
+
+        printf("error is 0x%X\n", error);
+
+        assert(error == GL_NO_ERROR);
 
         //copy the backbuffer into the window
         SwapBuffers(hdc);
@@ -101,12 +119,13 @@ LRESULT OverlayWindow::overlay_proc(UINT message, WPARAM wparam, LPARAM lparam) 
 bool OverlayWindow::create_window() {
     // TODO: only do this once
     WNDCLASSEX wclass;
+
     wclass.cbSize        = sizeof(WNDCLASSEX);
-    wclass.style         = 0;
+    wclass.style         = CS_OWNDC;
     wclass.lpfnWndProc   = &OverlayWindow::window_proc;
     wclass.cbClsExtra    = 0;
     wclass.cbWndExtra    = 0;
-    wclass.hInstance     = GetModuleHandle(nullptr); // get the local dll
+    wclass.hInstance     = get_this_module(); // get the local dll
     wclass.hIcon         = NULL;
     wclass.hCursor       = NULL;
     wclass.hbrBackground = CreateSolidBrush(RGB(0, 0, 0));
@@ -125,9 +144,9 @@ bool OverlayWindow::create_window() {
         0,
         100,
         100,
-        nullptr, nullptr, GetModuleHandle(nullptr), nullptr);
+        nullptr, nullptr, get_this_module(), nullptr);
     if (local == nullptr) {
-        UnregisterClass(overlay_class_name, GetModuleHandle(nullptr));
+        UnregisterClass(overlay_class_name, get_this_module());
         return false;
     }
 
@@ -138,23 +157,23 @@ bool OverlayWindow::create_window() {
 
     SetWindowLongPtr(local, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 
-    //make sure our window is layered
-    //NOTE: SOME WINDOWS VERSIONS DO NOT SUPPORT THIS
+    // make sure our window is layered
+    // NOTE: SOME WINDOWS VERSIONS DO NOT SUPPORT THIS
     if (!SetLayeredWindowAttributes(local, RGB(0, 0, 0), 255, LWA_COLORKEY | LWA_ALPHA)) {
-        UnregisterClass(overlay_class_name, GetModuleHandle(nullptr));
+        UnregisterClass(overlay_class_name, get_this_module());
         return false;
     }
 
-    //the region that is not blurred is rendered based off the alpha channel, therefore, we create an invalid region so that nothing is blurred but the alpha blending remains. We need this due to... who the fuck knows why layered window attributes wont work? seriously tell me please :'(
+    // the region that is not blurred is rendered based off the alpha channel, therefore, we create an invalid region so that nothing is blurred but the alpha blending remains. We need this due to... who the fuck knows why layered window attributes wont work? seriously tell me please :'(
     DWM_BLURBEHIND bb = {DWM_BB_ENABLE | DWM_BB_BLURREGION, true, CreateRectRgn(0, 0, -1, -1), true};
-    //enable trasnparency via dwm
-    //NOTE: SOME WINDOWS VERSIONS DO NOT SUPPORT THIS
+    // enable trasnparency via dwm
+    // NOTE: SOME WINDOWS VERSIONS DO NOT SUPPORT THIS
     if (DwmEnableBlurBehindWindow(local, &bb) != S_OK) {
-        UnregisterClass(overlay_class_name, GetModuleHandle(nullptr));
+        UnregisterClass(overlay_class_name, get_this_module());
         return false;
     }
 
-    //ShowWindow(local, SW_SHOWNORMAL);
+    ShowWindow(local, SW_SHOWNORMAL);
 
     // we have to process messages on the same thread that we create the window on
     MSG msg;
@@ -169,24 +188,24 @@ bool OverlayWindow::create_window() {
 bool OverlayWindow::init_gl() {
     PIXELFORMATDESCRIPTOR pfd = {
         sizeof(PIXELFORMATDESCRIPTOR),
-        1, // Version Number
-        PFD_DRAW_TO_WINDOW | // Format Must Support Window
-            PFD_SUPPORT_OPENGL | // Format Must Support OpenGL
+        1,                            // Version Number
+        PFD_DRAW_TO_WINDOW |          // Format Must Support Window
+            PFD_SUPPORT_OPENGL |      // Format Must Support OpenGL
             PFD_SUPPORT_COMPOSITION | // Format Must Support Composition
-            PFD_DOUBLEBUFFER, // Must Support Double Buffering
-        PFD_TYPE_RGBA, // Request An RGBA Format
-        32, // Select Our Color Depth
-        0, 0, 0, 0, 0, 0, // Color Bits Ignored
-        8, // An Alpha Buffer
-        0, // Shift Bit Ignored
-        0, // No Accumulation Buffer
-        0, 0, 0, 0, // Accumulation Bits Ignored
-        0, // No Z-Buffer (Depth Buffer)
-        8, // Some Stencil Buffer
-        0, // No Auxiliary Buffer
-        PFD_MAIN_PLANE, // Main Drawing Layer
-        0, // Reserved
-        0, 0, 0 // Layer Masks Ignored
+            PFD_DOUBLEBUFFER,         // Must Support Double Buffering
+        PFD_TYPE_RGBA,                // Request An RGBA Format
+        32,                           // Select Our Color Depth
+        0, 0, 0, 0, 0, 0,             // Color Bits Ignored
+        8,                            // An Alpha Buffer
+        0,                            // Shift Bit Ignored
+        0,                            // No Accumulation Buffer
+        0, 0, 0, 0,                   // Accumulation Bits Ignored
+        0,                            // No Z-Buffer (Depth Buffer)
+        8,                            // Some Stencil Buffer
+        0,                            // No Auxiliary Buffer
+        PFD_MAIN_PLANE,               // Main Drawing Layer
+        0,                            // Reserved
+        0, 0, 0                       // Layer Masks Ignored
     };
     int pf = ChoosePixelFormat(hdc, &pfd);
     if (pf == 0) return false;
@@ -198,15 +217,20 @@ bool OverlayWindow::init_gl() {
     if (wglMakeCurrent(hdc, hglrc) == false) return false;
 
     glMatrixMode(GL_PROJECTION);
+
+    assert(glGetError() == GL_NO_ERROR);
+
     resize();
     //color to set when screen is cleared, black with no alpha
-    glClearColor(0.f, 0.f, 0.f, 0.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
     return true;
 }
 
 //setup openGL
 bool OverlayWindow::init() {
+
+    // TODO: use futures here to see if this fails / exits abnormally
     std::thread{&OverlayWindow::create_window, this}.detach();
 
     return true;
@@ -252,6 +276,12 @@ void OverlayWindow::resize() {
     GetWindowRect(target, &window_bounds);
     GetClientRect(target, &client_bounds);
 
+    auto rect_size_zero = [](const RECT &a) {
+        return (a.right - a.left) == 0 || (a.bottom - a.top) == 0;
+    };
+
+    if (rect_size_zero(window_bounds) || rect_size_zero(client_bounds)) return;
+
     //width and height of client rect
     auto width  = client_bounds.right - client_bounds.left;
     auto height = client_bounds.bottom - client_bounds.top;
@@ -265,14 +295,12 @@ void OverlayWindow::resize() {
 
     glOrtho(client_bounds.left, client_bounds.right, client_bounds.bottom, client_bounds.top, 0, 1);
 
-    //glOrtho(0, 1, 1, 0, 0, 1);
-
     overlay_size = {static_cast<float>(width),
                     static_cast<float>(height)};
 }
 
-__declspec(dllexport) IOverlayWindow *create_overlay_window() {
-    return new OverlayWindow;
+IOverlayWindow *create_overlay_window(IDrawManager *dm) {
+    return new OverlayWindow(dm);
 }
 
 #endif

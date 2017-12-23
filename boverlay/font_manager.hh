@@ -2,14 +2,24 @@
 
 #include "types.hh"
 
-struct FontData {
-    u32 *textures;
-    u32  list_base;
-};
+#include <vector>
+
+#define FTGL_LIBRARY_STATIC
+
+class FTPixmapFont;
+class FTFont;
 
 class FontManager {
-public:
-    FontManager();
 
-    FontData *get_font(const char *name, float height);
+    std::vector<FTPixmapFont *> fonts;
+
+public:
+    using Handle = u32;
+
+    FontManager();
+    ~FontManager();
+
+    Handle get_font(const char *name, u32 height);
+
+    FTFont *get_data(const Handle h);
 };

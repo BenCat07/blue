@@ -5,6 +5,8 @@ require("premake_modules/export-compile-commands")
 workspace "Blue"
     configurations { "Debug", "Release" }
     platforms { "x32" }
+
+    location "premake"
     
     filter "system:windows"
         characterset "MBCS"
@@ -26,6 +28,8 @@ workspace "Blue"
         defines { "NDEBUG" }
         optimize "On"
 
+    filter {}
+
     project "blue"
         filter "system:linux"
             toolset "clang"
@@ -33,8 +37,6 @@ workspace "Blue"
             toolset "msc-v141"
             buildoptions{ "--driver-mode=cl -Bv" }
         filter {}
-
-        location "blue"
 
         kind "SharedLib"
         language "C++"
@@ -58,8 +60,6 @@ workspace "Blue"
         filter "system:windows"
             toolset "msc-v141"
             --buildoptions{ "-Bv" }
-            
-        location "boverlay"
 
         kind "Sharedlib"
         language "C++"
@@ -74,8 +74,18 @@ workspace "Blue"
         filter {}
             
         pchsource "boverlay/stdafx.cc"
+
+        includedirs {"boverlay/include/ftgl", "boverlay/include"}
+
+        filter {"configurations:Debug"}
+            libdirs {"boverlay/lib", "boverlay/lib/debug"}
+        filter {"configurations:Release"}
+            libdirs {"boverlay/lib", "boverlay/lib/release"}
+        filter {}
+
+		links {"ftgl_static", "freetype281", "glew32s"}
         
-        files { "boverlay/*.hh", "boverlay/*.cc" }    
+        files { "boverlay/*.hh", "boverlay/*.cc" }
         filter {}
 
     project "testbed"
@@ -84,10 +94,10 @@ workspace "Blue"
         filter "system:windows"
             toolset "msc-v141"
             --buildoptions{ "-Bv" }
-
         filter {}
 
-        location "testbed"
+        dependson {"boverlay"}
+
         libdirs{"lib/%{cfg.buildcfg}"}
 
         kind "ConsoleApp"

@@ -157,6 +157,8 @@ auto Signature::resolve_library(const char *name) -> void * {
 #error implement me!
 #endif
     assert(0);
+
+    return nullptr;
 }
 auto Signature::resolve_import(void *handle, const char *name) -> void * {
 #if blueplatform_windows()

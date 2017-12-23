@@ -10,6 +10,10 @@ public:
     virtual void shutdown() = 0;
 
 #ifdef _MSC_VER
+    virtual void make_current();
+#endif
+
+#ifdef _MSC_VER
     // target should be a HWND of the target window you want to overlay
     virtual void set_target(void *target) = 0;
 #else
@@ -23,7 +27,7 @@ public:
 };
 
 #ifdef _MSC_VER
-__declspec(dllexport) IOverlayWindow *create_overlay_window();
+IOverlayWindow *create_overlay_window(class IDrawManager *);
 #else
 IOverlay *create_overlay_window();
 #endif

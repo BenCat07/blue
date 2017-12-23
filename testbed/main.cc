@@ -31,14 +31,14 @@ void on_frame(void *draw_manager) {
 
     dm->set_draw_color({255, 255, 0, 255});
     dm->draw_outline_rect({0, 400}, {200, 700});
+
+    //static auto font_handle = dm->create_font("C:\\Windows\\Fonts\\Calibri.ttf", 12);
+    //dm->draw_text(font_handle, {0, 0}, "wow nice meme");
 }
 
 int main() {
-
-    auto overlay = create_overlay_window();
-    overlay->init();
-
-    auto draw_manager = create_draw_manager(overlay);
+    auto draw_manager = create_draw_manager();
+    auto overlay      = draw_manager->get_overlay();
 
     auto target = FindWindow("Notepad", nullptr);
     overlay->set_target(target);

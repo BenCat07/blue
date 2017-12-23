@@ -132,4 +132,14 @@ public:
         return_virtual_func(get_user_cmd, 8, 8, 8, 0, sequence_number);
     }
 };
+
+class Cvar {
+public:
+    Cvar() = delete;
+
+    auto register_command(void *command) -> void {
+        return_virtual_func(register_command, 6, 6, 6, 0, command);
+    }
+};
+
 } // namespace TF
