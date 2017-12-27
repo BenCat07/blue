@@ -13,6 +13,11 @@
 // Convar types into their own templated class so that you can static_cast
 // to it once you know what you are dealing with.
 
+namespace TF {
+class ConCommandBase;
+class IConVar;
+} // namespace TF
+
 enum class Convar_Type {
     Bool,
     Int,
@@ -33,6 +38,10 @@ class Convar_Base {
 
     char        internal_name[128];
     Convar_Type t;
+
+    TF::ConCommandBase *tf_convar;
+
+    static auto tf_convar_changed(TF::IConVar *convar, const char *old_string, float old_float) -> void;
 
 public:
     Convar_Base(const char *name, Convar_Type type, const Convar_Base *parent);
@@ -74,10 +83,12 @@ public:
     };
 
     static auto get_range() { return Convar_Range(); }
+
+    static auto init_all() -> void;
 };
 
 template <typename T>
-class Convar : public Convar_Base;
+class Convar;
 
 template <>
 class Convar<bool> : public Convar_Base {
@@ -89,10 +100,10 @@ public:
     auto from_string(const char *str) -> bool override final {
         assert(str);
 
-        if (stricmp(str, "false") == 0) {
+        if (_stricmp(str, "false") == 0) {
             value = false;
             return true;
-        } else if (stricmp(str, "true") == 0) {
+        } else if (_stricmp(str, "true") == 0) {
             value = true;
             return true;
         }
@@ -161,7 +172,7 @@ public:
         memset(temp[cur_index], 0, sizeof(temp));
 #endif
 
-        return itoa(value, temp[cur_index], 10);
+        return _itoa(value, temp[cur_index], 10);
     }
 
     operator int() const { return value; }
@@ -197,7 +208,7 @@ public:
     auto from_string(const char *str) -> bool override {
         assert(str);
 
-        auto new_value = atof(str);
+        auto new_value = static_cast<float>(atof(str));
 
         if (min_value != no_value) {
             if (value < min_value) return false;
@@ -226,7 +237,7 @@ public:
 
     operator float() const { return value; }
 
-    auto operator=(int v) {
+    auto operator=(float v) {
         value = v;
         return *this;
     }

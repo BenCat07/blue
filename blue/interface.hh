@@ -19,7 +19,7 @@ public:
             Interface_Helpers::find_interface(module_name, interface_name));
     }
 
-    // set from a pointer (only do this for non-exported
+    // set from a pointer (you should only do this for non-exported
     //  interfaces e.g. IInput or CClientModeShared)
     static auto set_from_pointer(T *new_value) {
         value = new_value;
@@ -31,6 +31,10 @@ public:
 
     auto get() -> T *& {
         return value;
+    }
+
+    operator bool() {
+        return value != nullptr;
     }
 };
 

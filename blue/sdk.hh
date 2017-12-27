@@ -137,8 +137,16 @@ class Cvar {
 public:
     Cvar() = delete;
 
-    auto register_command(void *command) -> void {
+    auto allocate_dll_identifier() -> u32 {
+        return_virtual_func(allocate_dll_identifier, 5, 5, 5, 0);
+    }
+
+    auto register_command(class ConCommandBase *command) -> void {
         return_virtual_func(register_command, 6, 6, 6, 0, command);
+    }
+
+    auto unregister_command(class ConCommandBase *command) -> void {
+        return_virtual_func(unregister_command, 7, 7, 7, 0, command);
     }
 };
 

@@ -10,6 +10,8 @@
 #include "sdk.hh"
 #include "vfunc.hh"
 
+#include "convar.hh"
+
 class Blue_Core : public GameSystem {
     bool inited = false;
 
@@ -26,6 +28,7 @@ public:
         IFace<TF::EntList>().set_from_interface("client", "VClientEntityList");
         IFace<TF::Input>().set_from_pointer(**reinterpret_cast<TF::Input ***>(
             VFunc::get_func<u8 *>(IFace<TF::Client>().get(), 15, 0) + 0x2));
+        IFace<TF::Cvar>().set_from_interface("vstdlib", "VEngineCvar");
     }
     auto process_attach() -> void {
         Log::msg("process_attach()");
@@ -34,6 +37,9 @@ public:
         // becuase their dynamic initialiser could be after the
         // gamesystems one
         TF::Netvar::init_all();
+
+        // register all convars now that we have the interfaces we need
+        Convar_Base::init_all();
 
         // at this point we are now inited and ready to go!
         inited = true;
@@ -66,6 +72,8 @@ public:
         GameSystem::add_all();
     }
 };
+
+Convar<int> blue_test{"blue_test", 10, 0, 100, nullptr};
 
 Blue_Core blue;
 
