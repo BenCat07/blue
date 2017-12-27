@@ -4,14 +4,14 @@
 #include "log.hh"
 #include "signature.hh"
 
-using instantiate_interface_fn = void *(*)();
+using InstantiateInterfaceFn = void *(*)();
 
 class InterfaceReg {
 public:
     InterfaceReg() = delete;
 
 public:
-    instantiate_interface_fn create_fn;
+    InstantiateInterfaceFn create_fn;
     const char *             name;
 
     InterfaceReg *next;
@@ -24,15 +24,17 @@ auto Interface_Helpers::find_interface(const char *module_name, const char *inte
     if constexpr (BluePlatform::windows()) {
         interface_reg_head = **Signature::find_pattern<InterfaceReg ***>(module_name, "8B 35 ? ? ? ? 57 85 F6 74 38", 2);
     } else if constexpr (BluePlatform::linux()) {
-        assert(0);
+        static_assert(BluePlatform::linux() == false);
     } else if constexpr (BluePlatform::osx()) {
-        assert(0);
+        static_assert(BluePlatform::linux() == false);
     }
 
     assert(interface_reg_head);
 
     for (auto r = interface_reg_head; r != nullptr; r = r->next) {
         auto match = strstr(r->name, interface_name);
+
+        // Only match if the next character after the name is the number
         if (match != nullptr && !isalpha(*(match + strlen(interface_name)))) return r->create_fn();
     }
 

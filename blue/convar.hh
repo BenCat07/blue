@@ -102,14 +102,14 @@ public:
 
         if (_stricmp(str, "false") == 0) {
             value = false;
-            return true;
+            return false;
         } else if (_stricmp(str, "true") == 0) {
             value = true;
-            return true;
+            return false;
         }
         value = atoi(str);
 
-        return true;
+        return false;
     }
 
     auto to_string() const -> const char * override final {
@@ -152,14 +152,21 @@ public:
         auto new_value = atoi(str);
 
         if (min_value != no_value) {
-            if (value < min_value) return false;
-        } else if (max_value != no_value) {
-            if (value > max_value) return false;
+            if (new_value < min_value) {
+                value = min_value;
+                return true;
+            }
+        }
+        if (max_value != no_value) {
+            if (new_value > max_value) {
+                value = max_value;
+                return true;
+            }
         }
 
         value = new_value;
 
-        return true;
+        return false;
     }
 
     auto to_string() const -> const char * override {
@@ -211,14 +218,21 @@ public:
         auto new_value = static_cast<float>(atof(str));
 
         if (min_value != no_value) {
-            if (value < min_value) return false;
-        } else if (max_value != no_value) {
-            if (value > max_value) return false;
+            if (value < min_value) {
+                value = min_value;
+                return true;
+            }
+        }
+        if (max_value != no_value) {
+            if (value > max_value) {
+                value = min_value;
+                return true;
+            }
         }
 
         value = new_value;
 
-        return true;
+        return false;
     }
 
     auto to_string() const -> const char * override {
@@ -271,7 +285,7 @@ public:
         value     = new char[size];
         strcpy_s(this->value, size, str);
 
-        return true;
+        return false;
     }
 
     auto to_string() const -> const char * override {

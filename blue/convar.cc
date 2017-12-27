@@ -66,7 +66,6 @@ public:
     }
 
     // Convar vtable items
-
     virtual auto set_value(const char *value) -> void {
         assert(parent == this); // Only valid for root convars.
 
@@ -170,27 +169,28 @@ public:
         assert(0);
     }
 
-    virtual auto create_convar(char const *name, char const *default_value, u32 flags, char const *help_string, bool has_min, float min, bool has_max, float max, ChangeCallbackFn change_callback) -> void {
+    virtual auto create_convar(char const *name, char const *default_value, u32 flags, char const *help_string,
+                               bool has_min, float min, bool has_max, float max, ChangeCallbackFn change_callback) -> void {
         create_base(name, help_string, flags);
 
-        // Set up the MI vtables properly
-        // IConvar.h
-        /*
+        {
+            // Set up the MI vtables properly
+            // IConvar.h
+            /*
 			virtual void SetValue( const char *pValue ) = 0;
 			virtual void SetValue( float flValue ) = 0;
 			virtual void SetValue( int nValue ) = 0;
+
 			virtual const char *GetName( void ) const = 0;
 			virtual bool IsFlagSet( int nFlag ) const = 0;
-		*/
+			*/
 
-        // These all need to be properly thunked
-
-        {
+            // These all need to be properly thunked
             static auto iconvar_vtable = []() {
                 auto ret = new void *[5];
-                ret[0]   = &set_value_string_thunk;
+                ret[0]   = &set_value_int_thunk;
                 ret[1]   = &set_value_float_thunk;
-                ret[2]   = &set_value_int_thunk;
+                ret[2]   = &set_value_string_thunk;
 
                 ret[3] = &undefined_thunk;
                 ret[4] = &undefined_thunk;
@@ -267,9 +267,17 @@ auto Convar_Base::tf_convar_changed(TF::IConVar *iconvar, const char *old_string
         if (c->tf_convar == convar) {
             if (convar->registered == false) return;
 
-            auto modifiable = const_cast<Convar_Base *>(c);
-            modifiable->from_string(convar->value_string);
-            Log::msg("Updated convar %s to '%s'", convar->get_name(), convar->value_string);
+            auto modifiable  = const_cast<Convar_Base *>(c);
+            auto was_clamped = modifiable->from_string(convar->value_string);
+
+            // Remove the callback when we call set_value to prevent recursion
+            // TODO: there is probably a better way to do this...
+            auto callback_backup    = convar->change_callback;
+            convar->change_callback = nullptr;
+            if (was_clamped) convar->set_value(modifiable->to_string());
+            convar->change_callback = callback_backup;
+
+            Log::msg("Updated convar %s to '%s' (%s)", convar->get_name(), convar->value_string, was_clamped ? "clamped" : "not clamped");
         }
     }
 }
