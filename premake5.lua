@@ -1,7 +1,5 @@
-
 require("premake_modules/export-compile-commands")
 
--- premake5.lua
 workspace "Blue"
     configurations { "Debug", "Release" }
     platforms { "x32" }
@@ -19,14 +17,17 @@ workspace "Blue"
     filter "configurations:Debug"
         cppdialect "C++17"
     
-        defines { "DEBUG" }
-        symbols "On"
+        defines { "DEBUG", "_DEBUG" }
+        optimize "Off"
+        runtime "Debug"
 
     filter "configurations:Release"
         cppdialect "C++17"
     
         defines { "NDEBUG" }
-        optimize "On"
+        optimize "Full"
+        symbols "Off"
+        flags {"LinkTimeOptimization"}
 
     filter {}
 
@@ -35,7 +36,7 @@ workspace "Blue"
             toolset "clang"
         filter "system:windows"
             toolset "msc-v141"
-            buildoptions{ "--driver-mode=cl -Bv" }
+            buildoptions{ "--driver-mode=cl" }
         filter {}
 
         kind "SharedLib"
@@ -59,7 +60,7 @@ workspace "Blue"
             toolset "clang"
         filter "system:windows"
             toolset "msc-v141"
-            --buildoptions{ "-Bv" }
+        filter {}
 
         kind "Sharedlib"
         language "C++"
@@ -93,7 +94,6 @@ workspace "Blue"
             toolset "clang"
         filter "system:windows"
             toolset "msc-v141"
-            --buildoptions{ "-Bv" }
         filter {}
 
         dependson {"boverlay"}
