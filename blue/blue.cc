@@ -12,6 +12,11 @@
 
 #include "convar.hh"
 
+#include "blue_module.hh"
+#include "blue_module_list.hh"
+
+DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, update);
+
 class Blue_Core : public GameSystem {
     bool inited = false;
 
@@ -47,9 +52,7 @@ public:
 
     auto shutdown() -> void override { Log::msg("shutdown()"); }
 
-    auto level_init_pre_entity() -> void override {
-        Log::msg("init_pre_entity()");
-    }
+    auto level_init_pre_entity() -> void override { Log::msg("init_pre_entity()"); }
     auto level_init_post_entity() -> void override { Log::msg("level_init_post_entity"); }
     auto level_shutdown_pre_clear_steam_api_context() -> void override { Log::msg("level_shutdown_pre_clear_steam_api_context"); }
     auto level_shutdown_pre_entity() -> void override { Log::msg("level_shutdown_pre_entity"); }
@@ -66,6 +69,8 @@ public:
             auto origin = local->origin();
             Log::msg("(%f, %f, %f)", origin.x, origin.y, origin.z);
         }
+
+        ModuleList_call_update(frametime);
     }
 
     Blue_Core() {
