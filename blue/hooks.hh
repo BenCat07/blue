@@ -67,11 +67,37 @@ public:
         delete[] new_table;
     }
 
-    auto hook_function(u32 index, void *f) -> void {
+    auto hook_function(u32 index, void *f) {
         assert(index < count_funcs());
 
         hooked_functions.push_back(std::make_pair(index, f));
         new_table[index] = f;
+    }
+
+    auto unhook_function(u32 index) -> void {
+        assert(index < count_funcs());
+
+        auto found = false;
+        for (auto &f : hooked_functions) {
+            if (f.first == index) {
+                found = true;
+
+                // remove from the hooked functions list
+                std::swap(f, hooked_functions.back());
+                hooked_functions.pop_back();
+
+                // swap the pointers
+                new_table[index] = original_table[index];
+
+                // at this point there is no reason to swap the tables over
+                // either the tables are already swapped in which case this
+                // has an immediate effect, or they are not in which case its
+                // not a problem anyway.
+
+                return;
+            }
+        }
+        assert(found);
     }
 
     template <typename F>
@@ -95,8 +121,12 @@ class HookFunction {
         return h;
     }
 
+    T * instance;
+    u32 index;
+
 public:
     HookFunction(T *instance, u32 index, void *f) {
+        assert(instance);
         HookInstance<T, offset> *val = nullptr;
 
         for (auto &v : hooks) {
@@ -112,7 +142,19 @@ public:
             return;
         }
 
+        this->instance = instance;
+        this->index    = index;
+
         val->hook_function(index, f);
+    }
+
+    ~HookFunction() {
+        for (auto &v : hooks) {
+            if (v->get_instance() == instance) {
+                v->unhook_function(index);
+                return;
+            }
+        }
     }
 };
 

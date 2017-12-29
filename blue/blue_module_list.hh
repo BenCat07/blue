@@ -1,20 +1,30 @@
 #pragma once
 #include "blue_platform.hh"
 
-#include "blue_module.hh"
-
 namespace BlueModule {
-// helper define so that derived classes do not have to implement all the functions that the base module class does
-#define DEFINE_INVOKE(name)                                                                               \
-    template <typename... Args, typename = std::enable_if_t<std::is_function_v<decltype(Derived::name)>>> \
-    static void __declspec(noinline) invoke_##name(Args... args) { return Derived::name(args...); }       \
-    static void invoke_##name(...){};
+
+// Helper define so that derived classes do not have to implement all the functions that the base module class does
+// Here i use this terrible SFINAE becuase msvc has difficulty using std::enable_if
+// (The int&& forces the compiler to check if the templated version matches first before resorting to the ... one)
+// And since it is forwarded into nothing, it vanishes into thin air.
+#define DEFINE_INVOKE(name)                                                                   \
+private:                                                                                      \
+    template <typename T, typename... Args, typename = decltype(T::name)>                     \
+    static auto invoke_##name##_impl(int &&, Args... args) { return Derived::name(args...); } \
+    template <typename T>                                                                     \
+    static auto invoke_##name##_impl(...) {}                                                  \
+                                                                                              \
+public:                                                                                       \
+    template <typename... Args>                                                               \
+    static auto invoke_##name##(Args... args) { return invoke_##name##_impl<Derived>(0, args...); }
 
 template <typename Derived>
 class Invoke {
 public:
     DEFINE_INVOKE(create_move_pre_predict);
     DEFINE_INVOKE(create_move);
+    DEFINE_INVOKE(level_shutdown);
+    DEFINE_INVOKE(level_startup);
     DEFINE_INVOKE(update);
 };
 
@@ -23,6 +33,9 @@ public:
 // Helpers for creating a compile time list of types
 // Whilst this is clumsy it is also better than doing the F1Cheat method of creating a define
 // with all of the types and then iterating over them
+
+// This works by constructing a type that inherits the previous type that inherits the previous type...
+// So on and so forth, eventually resulting in Nil - the terminator type
 
 struct Nil {};
 
@@ -89,6 +102,7 @@ struct ListMakerKey<T, 0> {};
 START_LIST(ModuleList);
 
 // include modules here
-#include "module_test.hh"
+#include "modules/module_createmove.hh"
+#include "modules/module_test.hh"
 
 END_LIST(ModuleList);

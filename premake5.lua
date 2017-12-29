@@ -19,6 +19,7 @@ workspace "Blue"
     
         defines { "DEBUG", "_DEBUG" }
         optimize "Off"
+        symbols "Full"
         runtime "Debug"
 
     filter "configurations:Release"
@@ -52,7 +53,9 @@ workspace "Blue"
 
         pchsource "blue/stdafx.cc"
 
-        files { "blue/*.hh", "blue/*.cc" }
+		includedirs { "blue" }
+        files { "blue/*.hh", "blue/*.cc",
+                "blue/modules/*.hh", "blue/modules/*.cc" }
 
     
     project "boverlay"

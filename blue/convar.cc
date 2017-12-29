@@ -266,6 +266,7 @@ auto Convar_Base::tf_convar_changed(TF::IConVar *iconvar, const char *old_string
     for (auto c : Convar_Base::get_range()) {
         if (c->tf_convar == convar) {
             if (convar->registered == false) return;
+            if (c->init_complete == false) return;
 
             auto modifiable  = const_cast<Convar_Base *>(c);
             auto was_clamped = modifiable->from_string(convar->value_string);
@@ -282,7 +283,7 @@ auto Convar_Base::tf_convar_changed(TF::IConVar *iconvar, const char *old_string
     }
 }
 
-Convar_Base::Convar_Base(const char *name, Convar_Type type, const Convar_Base *parent) : parent(parent), t(type), next(head) {
+Convar_Base::Convar_Base(const char *name, Convar_Type type, const Convar_Base *parent) : parent(parent), t(type), next(head), init_complete(false) {
     head = this;
 
     strcpy_s(internal_name, name);
@@ -290,6 +291,8 @@ Convar_Base::Convar_Base(const char *name, Convar_Type type, const Convar_Base *
     // Create a tf convar based on this one
     tf_convar = new TF::ConCommandBase;
     tf_convar->create_convar(name, "", 0, name, false, 0, false, 0, &Convar_Base::tf_convar_changed);
+
+    init_complete = true;
 }
 
 Convar_Base::~Convar_Base() {

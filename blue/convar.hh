@@ -41,6 +41,8 @@ class Convar_Base {
 
     TF::ConCommandBase *tf_convar;
 
+    bool init_complete;
+
     static auto tf_convar_changed(TF::IConVar *convar, const char *old_string, float old_float) -> void;
 
 public:
@@ -96,6 +98,10 @@ class Convar<bool> : public Convar_Base {
 
 public:
     Convar(const char *name, const Convar_Base *parent) : Convar_Base(name, Convar_Type::Bool, parent), value(false) {}
+
+    Convar(const char *name, bool value, const Convar_Base *parent) : Convar(name, parent) {
+        this->value = value;
+    }
 
     auto from_string(const char *str) -> bool override final {
         assert(str);

@@ -12,16 +12,27 @@
 
 #include "convar.hh"
 
-#include "blue_module.hh"
 #include "blue_module_list.hh"
 
 DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, update);
+DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, level_shutdown);
+DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, level_startup);
 
 class Blue_Core : public GameSystem {
     bool inited = false;
 
+    u32 old_sequence = 0;
+
 public:
     auto init() -> bool override {
+#ifdef _DEBUG
+        // create a debug console so that we can see the results
+        // of all those lovely asserts
+        assert(AllocConsole() != 0);
+        freopen("CONOUT$", "w", stdout);
+        freopen("CONOUT$", "w", stderr);
+#endif
+
         Log::msg("init()");
         return true;
     }
@@ -34,6 +45,8 @@ public:
         IFace<TF::Input>().set_from_pointer(**reinterpret_cast<TF::Input ***>(
             VFunc::get_func<u8 *>(IFace<TF::Client>().get(), 15, 0) + 0x2));
         IFace<TF::Cvar>().set_from_interface("vstdlib", "VEngineCvar");
+        IFace<TF::ClientMode>().set_from_pointer(
+            *Signature::find_pattern<TF::ClientMode **>("client", "B9 ? ? ? ? A3 ? ? ? ? E8 ? ? ? ? 68 ? ? ? ? E8 ? ? ? ? 83 C4 04 C7 05", 1));
     }
     auto process_attach() -> void {
         Log::msg("process_attach()");
@@ -53,9 +66,16 @@ public:
     auto shutdown() -> void override { Log::msg("shutdown()"); }
 
     auto level_init_pre_entity() -> void override { Log::msg("init_pre_entity()"); }
-    auto level_init_post_entity() -> void override { Log::msg("level_init_post_entity"); }
+    auto level_init_post_entity() -> void override {
+        Log::msg("level_init_post_entity");
+
+        ModuleList_call_level_startup();
+    }
     auto level_shutdown_pre_clear_steam_api_context() -> void override { Log::msg("level_shutdown_pre_clear_steam_api_context"); }
-    auto level_shutdown_pre_entity() -> void override { Log::msg("level_shutdown_pre_entity"); }
+    auto level_shutdown_pre_entity() -> void override {
+        Log::msg("level_shutdown_pre_entity");
+        ModuleList_call_level_shutdown();
+    }
     auto level_shutdown_post_entity() -> void override { Log::msg("level_shutdown_post_entity"); }
 
     // update is called from CHLClient_HudUpdate
@@ -64,11 +84,6 @@ public:
     // HOWEVER: it might be better to do this at frame_end()
     auto update([[maybe_unused]] float frametime) -> void override {
         if (inited != true || IFace<TF::Engine>()->in_game() != true) return;
-
-        if (auto *local = TF::Player::local()) {
-            auto origin = local->origin();
-            Log::msg("(%f, %f, %f)", origin.x, origin.y, origin.z);
-        }
 
         ModuleList_call_update(frametime);
     }

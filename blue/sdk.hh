@@ -6,6 +6,7 @@
 #include "datatable.hh"
 #include "entity.hh"
 #include "interface.hh"
+#include "signature.hh"
 
 namespace TF {
 class UserCmd {
@@ -46,6 +47,43 @@ public:
     }
 };
 
+class ClientMode {
+public:
+    ClientMode() = delete;
+};
+
+class NetChannel {
+public:
+    enum class Flow {
+        outgoing,
+        incoming
+    };
+
+    NetChannel() = delete;
+
+    auto get_sequence_number(TF::NetChannel::Flow f) -> i32 {
+        return_virtual_func(get_sequence_number, 16, 16, 16, 0, f);
+    }
+
+    auto queued_packets() -> i32 & {
+        static auto queued_packets_offset = []() {
+            if constexpr (BluePlatform::windows()) {
+                return *Signature::find_pattern<u32 *>("engine", "83 BE ? ? ? ? ? 0F 9F C0 84 C0", 2);
+            } else if constexpr (BluePlatform::linux()) {
+                static_assert(BluePlatform::linux() == false);
+            } else if constexpr (BluePlatform::osx()) {
+                static_assert(BluePlatform::osx() == false);
+            }
+        }();
+
+        assert(queued_packets_offset);
+
+        auto &queued_packets = *reinterpret_cast<i32 *>(reinterpret_cast<u8 *>(this) + queued_packets_offset);
+
+        return queued_packets;
+    }
+};
+
 class Engine {
 public:
     Engine() = delete;
@@ -64,6 +102,10 @@ public:
 
     auto local_player_index() -> u32 {
         return_virtual_func(local_player_index, 12, 12, 12, 0);
+    }
+
+    auto net_channel_info() -> NetChannel * {
+        return_virtual_func(net_channel_info, 72, 72, 72, 0);
     }
 };
 
@@ -131,7 +173,25 @@ public:
     Input() = delete;
 
     auto get_user_cmd(u32 sequence_number) -> UserCmd * {
-        return_virtual_func(get_user_cmd, 8, 8, 8, 0, sequence_number);
+        static auto array_offset = []() {
+            if constexpr (BluePlatform::windows()) {
+                return *Signature::find_pattern<u32 *>("client", "8B 87 ? ? ? ? 8B CA", 2);
+            } else if constexpr (BluePlatform::linux()) {
+                static_assert(BluePlatform::linux() == false);
+            } else if constexpr (BluePlatform::osx()) {
+                static_assert(BluePlatform::osx() == false);
+            }
+        }();
+        // this should not be 0
+        assert(array_offset != 0);
+
+        auto cmd_array = *reinterpret_cast<UserCmd **>(reinterpret_cast<u8 *>(this) + array_offset);
+
+        return &cmd_array[sequence_number % 90];
+    }
+
+    auto get_verified_user_cmd(u32 sequence_number) -> class VerifiedCmd * {
+        // 03 B7 ? ? ? ? 8D 04 88
     }
 };
 
