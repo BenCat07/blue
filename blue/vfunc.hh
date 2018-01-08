@@ -8,12 +8,15 @@
 
 // helpers for calling virtual functions
 namespace VFunc {
-inline auto get_table(void *inst, u32 offset) -> void **& {
-    return *reinterpret_cast<void ***>((uptr)inst + offset);
+inline auto get_table(void *inst, u32 offset) -> void ** {
+    return *reinterpret_cast<void ***>(reinterpret_cast<u8 *>(inst) + offset);
 }
 
-inline auto get_table(const void *inst, u32 offset) -> const void **& {
-    return *reinterpret_cast<const void ***>((uptr)inst + offset);
+inline auto get_table(const void *inst, u32 offset) -> const void ** {
+    return *reinterpret_cast<const void ***>(
+        reinterpret_cast<u8 *>(
+            const_cast<void *>(inst)) +
+        offset);
 }
 
 template <typename F>
@@ -29,19 +32,23 @@ inline auto get_func(void *inst, u32 index, u32 offset) -> F {
 template <typename>
 class Func;
 
-template <typename object_type, typename ret, typename... args>
-class Func<ret (object_type::*)(args...)> {
+template <typename ObjectType, typename Ret, typename... Args>
+class Func<Ret (ObjectType::*)(Args...)> {
 
-    using function_type = ret(__thiscall *)(object_type *, args...);
+    using function_type = Ret(__thiscall *)(ObjectType *, Args...);
     function_type f;
+
+    // On windows this will take into account the offset
+    // So we do not need to store that seperately
+    ObjectType *instance;
 
 public:
     // TODO: do any other platforms have this offset and is it useful?
-    Func(object_type *instance,
-         u32          index_windows,
-         u32          index_linux,
-         u32          index_osx,
-         u32          offset_windows) {
+    Func(ObjectType *instance,
+         u32         index_windows,
+         u32         index_linux,
+         u32         index_osx,
+         u32         offset_windows) {
         assert(instance != nullptr);
 
         auto index = 0u;
@@ -53,14 +60,20 @@ public:
             index = index_osx;
 
         auto offset = 0u;
-        if constexpr (BluePlatform::windows())
+        if constexpr (BluePlatform::windows()) {
             offset = offset_windows;
+
+            this->instance = reinterpret_cast<ObjectType *>(
+                reinterpret_cast<u8 *>(instance) + offset);
+        } else {
+            this->instance = instance;
+        }
 
         f = get_func<function_type>(instance, index, offset);
     }
 
-    auto invoke(object_type *instance, args... arguments) -> ret {
-        return f(instance, arguments...);
+    auto invoke(Args... args) -> Ret {
+        return f(instance, args...);
     }
 };
 
@@ -73,4 +86,4 @@ public:
 #define return_virtual_func(name, windows, linux, osx, off, ...) \
     using c = std::remove_reference<decltype(*this)>::type;      \
     using t = decltype(&c::name);                                \
-    return VFunc::Func<t>(this, windows, linux, osx, off).invoke(this, __VA_ARGS__)
+    return VFunc::Func<t>(this, windows, linux, osx, off).invoke(__VA_ARGS__)

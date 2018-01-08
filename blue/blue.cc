@@ -12,13 +12,13 @@
 
 #include "convar.hh"
 
-#include "blue_module_list.hh"
+#include "modules/blue_module_list.hh"
 
-DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, update);
-DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, level_shutdown);
-DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, level_startup);
+DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, BlueModule::Invoke, update);
+DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, BlueModule::Invoke, level_shutdown);
+DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, BlueModule::Invoke, level_startup);
 
-class Blue_Core : public GameSystem {
+class BlueCore : public GameSystem {
     bool inited = false;
 
     u32 old_sequence = 0;
@@ -28,9 +28,9 @@ public:
 #ifdef _DEBUG
         // create a debug console so that we can see the results
         // of all those lovely asserts
-        assert(AllocConsole() != 0);
-        freopen("CONOUT$", "w", stdout);
-        freopen("CONOUT$", "w", stderr);
+        //assert(AllocConsole() != 0);
+        //freopen("CONOUT$", "w", stdout);
+        //freopen("CONOUT$", "w", stderr);
 #endif
 
         Log::msg("init()");
@@ -47,6 +47,9 @@ public:
         IFace<TF::Cvar>().set_from_interface("vstdlib", "VEngineCvar");
         IFace<TF::ClientMode>().set_from_pointer(
             *Signature::find_pattern<TF::ClientMode **>("client", "B9 ? ? ? ? A3 ? ? ? ? E8 ? ? ? ? 68 ? ? ? ? E8 ? ? ? ? 83 C4 04 C7 05", 1));
+        IFace<TF::ModelInfo>().set_from_interface("engine", "VModelInfoClient");
+        IFace<TF::Trace>().set_from_interface("engine", "EngineTraceClient");
+        IFace<TF::DebugOverlay>().set_from_interface("engine", "VDebugOverlay003");
     }
     auto process_attach() -> void {
         Log::msg("process_attach()");
@@ -88,14 +91,14 @@ public:
         ModuleList_call_update(frametime);
     }
 
-    Blue_Core() {
+    BlueCore() {
         GameSystem::add_all();
     }
 };
 
 Convar<int> blue_test{"blue_test", 10, 0, 100, nullptr};
 
-Blue_Core blue;
+BlueCore blue;
 
 auto __stdcall blue_gamesystem_send_process_attach([[maybe_unused]] void *hmodule) -> u32 {
     // TODO: pass module over to the gamesystem

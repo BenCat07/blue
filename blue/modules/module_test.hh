@@ -7,8 +7,4 @@ public:
     static void update(float frametime);
 
     static void level_startup();
-    static void level_shutdown() {
-    }
 };
-
-ADD_TO_LIST(ModuleList, TestModule);

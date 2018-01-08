@@ -8,5 +8,6 @@
 #include <cstdio>
 #include <cstring>
 
+#include <algorithm>
 #include <utility>
 #include <vector>

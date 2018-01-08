@@ -10,7 +10,7 @@
 using namespace TF;
 
 auto Player::local() -> Player * {
-    return static_cast<Player *>(IFace<EntList>()->get_entity(IFace<Engine>()->local_player_index()));
+    return static_cast<Player *>(IFace<EntList>()->entity(IFace<Engine>()->local_player_index()));
 }
 
 static auto health = Netvar("DT_BasePlayer", "m_iHealth");
@@ -20,11 +20,16 @@ auto        Player::health() -> int & {
 
 static auto lifestate = Netvar("DT_BasePlayer", "m_lifeState");
 auto        Player::alive() -> bool {
-    return ::lifestate.get<int>(this) == 0;
+    return ::lifestate.get<u8>(this) == 0;
 }
 
 auto Player::origin() -> Math::Vector & {
     return_virtual_func(origin, 9, 0, 0, 0);
+}
+
+static auto team = Netvar("DT_BaseEntity", "m_iTeamNum");
+auto        Player::team() -> int {
+    return ::team.get<int>(this);
 }
 
 auto Player::render_bounds() -> std::pair<Math::Vector, Math::Vector> {
@@ -32,7 +37,84 @@ auto Player::render_bounds() -> std::pair<Math::Vector, Math::Vector> {
 
     std::pair<Math::Vector, Math::Vector> ret;
 
-    func.invoke(this, ret.first, ret.second);
+    func.invoke(ret.first, ret.second);
 
     return ret;
+}
+
+static auto view_offset = Netvar("DT_BasePlayer", "localdata", "m_vecViewOffset[0]");
+auto        Player::view_offset() -> Math::Vector & {
+    return ::view_offset.get<Math::Vector>(this);
+}
+
+static auto active_weapon_handle = Netvar("DT_BaseCombatCharacter", "m_hActiveWeapon");
+auto        Player::active_weapon() -> Entity * {
+    return IFace<EntList>()->from_handle(::active_weapon_handle.get<EntityHandle>(this));
+}
+
+auto Player::view_position() -> Math::Vector {
+    return origin() + view_offset();
+}
+
+auto Player::bone_transforms(Math::Matrix3x4 *hitboxes_out, u32 max_bones, u32 bone_mask, float current_time) -> bool {
+    return_virtual_func(bone_transforms, 16, 0, 0, 4, hitboxes_out, max_bones, bone_mask, current_time);
+}
+
+auto Player::model_handle() -> const ModelHandle * {
+    return_virtual_func(model_handle, 9, 0, 0, 4);
+}
+
+auto Player::studio_model() -> const StudioModel * {
+    return IFace<ModelInfo>()->studio_model(this->model_handle());
+}
+
+static auto get_hitboxes_internal(Player *player, const StudioModel *model, Player::PlayerHitboxes *hitboxes, bool create_pose) {
+    Math::Matrix3x4 bone_to_world[128];
+
+    // #define BONE_USED_BY_ANYTHING        0x0007FF00
+    bool success = player->bone_transforms(bone_to_world, 128, 0x0007FF00, IFace<Engine>()->last_timestamp());
+    assert(success);
+
+    auto hitbox_set_ptr = model->hitbox_set(0);
+    assert(hitbox_set_ptr);
+
+    auto &hitbox_set = *hitbox_set_ptr;
+
+    auto hitboxes_count = std::min(128u, hitbox_set.hitboxes_count);
+
+    Math::Vector origin;
+    Math::Vector centre;
+
+    for (u32 i = 0; i < hitboxes_count; ++i) {
+        auto box = hitbox_set[i];
+        assert(box);
+
+        Math::Vector rotation;
+        Math::matrix_angles(bone_to_world[box->bone], rotation, origin);
+
+        Math::Matrix3x4 rotate_matrix;
+        rotate_matrix.from_angle(rotation);
+
+        Math::Vector rotated_min, rotated_max;
+
+        rotated_min = rotate_matrix.rotate_vector(box->min);
+        rotated_max = rotate_matrix.rotate_vector(box->max);
+
+        centre = rotated_min.lerp(rotated_max, 0.5);
+
+        hitboxes->centre[i]   = origin + centre;
+        hitboxes->min[i]      = origin + rotated_min;
+        hitboxes->max[i]      = origin + rotated_max;
+        hitboxes->rotation[i] = rotation;
+        hitboxes->origin[i]   = origin;
+    }
+
+    return hitboxes_count;
+}
+
+auto Player::hitboxes(PlayerHitboxes *hitboxes_out, bool create_pose) -> u32 {
+    auto model = studio_model();
+    assert(model);
+
+    return get_hitboxes_internal(this, model, hitboxes_out, create_pose);
 }

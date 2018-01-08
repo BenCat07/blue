@@ -9,9 +9,12 @@
 
 using namespace TF;
 
+auto Entity::to_handle() -> EntityHandle & {
+    return_virtual_func(to_handle, 2, 0, 0, 0);
+}
+
 auto Entity::is_valid() -> bool {
-    // get around clangs "correctly formed code never
-    //  has a null thisptr"
+    // get around clangs "correctly formed code never has a null thisptr"
     auto thisptr = reinterpret_cast<uptr>(this);
     if (thisptr == 0) return false;
 

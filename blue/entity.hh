@@ -4,12 +4,18 @@
 #include "vfunc.hh"
 
 namespace TF {
+struct EntityHandle {
+    u32 serial_index;
+};
+
 class Entity {
 public:
     Entity() = delete;
 
     // helper functions
     auto is_valid() -> bool;
+
+    auto to_handle() -> EntityHandle &;
 
     // upcasts
     auto to_player() -> class Player *;

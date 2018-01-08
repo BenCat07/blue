@@ -121,8 +121,10 @@ auto Signature::resolve_library(const char *name) -> void * {
     snprintf(buffer, 1023, "%s.dll", name);
 
     auto handle = GetModuleHandleA(buffer);
-    if (handle) return handle;
-    assert(0);
+
+    assert(handle);
+
+    return handle;
 
 #elif blueplatform_linux()
     char found[1024];

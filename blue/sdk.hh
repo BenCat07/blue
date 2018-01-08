@@ -8,6 +8,8 @@
 #include "interface.hh"
 #include "signature.hh"
 
+#include "Trace.hh"
+
 namespace TF {
 class UserCmd {
     virtual ~UserCmd(){};
@@ -88,8 +90,8 @@ class Engine {
 public:
     Engine() = delete;
 
-    auto get_last_timestamp() -> float {
-        return_virtual_func(get_last_timestamp, 15, 15, 15, 0);
+    auto last_timestamp() -> float {
+        return_virtual_func(last_timestamp, 15, 15, 15, 0);
     }
 
     auto time() -> float {
@@ -113,12 +115,16 @@ class EntList {
 public:
     EntList() = delete;
 
-    auto get_entity(u32 index) -> Entity * {
-        return_virtual_func(get_entity, 3, 0, 0, 0, index);
+    auto entity(u32 index) -> Entity * {
+        return_virtual_func(entity, 3, 0, 0, 0, index);
     }
 
-    auto get_max_entity() -> u32 {
-        return_virtual_func(get_max_entity, 6, 0, 0, 0);
+    auto from_handle(EntityHandle h) -> Entity * {
+        return_virtual_func(from_handle, 4, 4, 4, 0, h);
+    }
+
+    auto max_entity_index() -> u32 {
+        return_virtual_func(max_entity_index, 6, 0, 0, 0);
     }
 
     class EntityRange {
@@ -130,7 +136,9 @@ public:
             EntList *parent;
 
         public:
-            Iterator(EntList *parent) : index(0), parent(parent) {}
+            // TODO: should we use 1 here or should we use 0 and force people
+            // that loop to deal with that themselves...
+            Iterator(EntList *parent) : index(1), parent(parent) {}
             explicit Iterator(u32 index, EntList *parent)
                 : index(index), parent(parent) {}
 
@@ -140,7 +148,7 @@ public:
             }
 
             auto operator*() {
-                return parent->get_entity(index);
+                return parent->entity(index);
             }
 
             auto operator==(const Iterator &b) {
@@ -159,7 +167,7 @@ public:
         }
 
         auto end() {
-            return Iterator(parent->get_max_entity(), parent);
+            return Iterator(parent->max_entity_index(), parent);
         }
     };
 
@@ -213,6 +221,146 @@ public:
     auto unregister_command(ConCommandBase *command) -> void {
         return_virtual_func(unregister_command, 7, 7, 7, 0, command);
     }
+};
+
+class Trace {
+public:
+    Trace() = delete;
+
+    auto trace_ray(const ::Trace::Ray &ray, u32 mask, ::Trace::Filter *filter, ::Trace::TraceResult *results) -> void {
+        return_virtual_func(trace_ray, 4, 4, 4, 0, ray, mask, filter, results);
+    }
+};
+
+// These are defined to give us distinct types for these
+// very different objects, to help us differentiate between them
+
+class ModelHandle; // model_t
+
+// mstudiobbox
+class StudioHitbox {
+public:
+    StudioHitbox() = delete;
+
+    int bone;
+    int group;
+
+    Math::Vector min;
+    Math::Vector max;
+
+    int name_index;
+
+private:
+    int unused[8];
+};
+
+// mstudiobboxset
+class StudioHitboxSet {
+public:
+    StudioHitboxSet() = delete;
+
+    int  name_index;
+    auto name() const -> const char * {
+        assert(0);
+        return "";
+    }
+
+    u32 hitboxes_count;
+    u32 hitbox_index;
+
+    const auto operator[](u32 index) const {
+        assert(index < hitboxes_count);
+
+        return reinterpret_cast<const StudioHitbox *>(
+                   reinterpret_cast<const u8 *>(this) + hitbox_index) +
+               index;
+    }
+};
+
+// studiohdr_t
+class StudioModel {
+public:
+    StudioModel() = delete;
+
+    int  id;
+    int  version;
+    int  checksum;
+    char name[64];
+    int  length;
+
+    Math::Vector eye_position; // ideal eye position
+
+    Math::Vector illumination_position; // illumination center
+
+    Math::Vector hull_min; // ideal movement hull size
+    Math::Vector hull_max;
+
+    Math::Vector view_bbmin; // clipping bounding box
+    Math::Vector view_bbmax;
+
+    int flags;
+
+    int bones_count;
+    int bone_index;
+
+    int bone_controllers_count;
+    int bone_controller_index;
+
+    int hitbox_sets_count;
+    int hitbox_set_index;
+
+    const auto hitbox_set(u32 index) const {
+        assert(index < hitbox_sets_count);
+
+        return reinterpret_cast<const StudioHitboxSet *>(
+                   reinterpret_cast<const u8 *>(this) + hitbox_set_index) +
+               index;
+    }
+
+    //... TODO:
+};
+
+class ModelInfo {
+public:
+    ModelInfo() = delete;
+
+    auto model_name(const ModelHandle *m) -> const char * {
+        return_virtual_func(model_name, 3, 0, 0, 0, m);
+    }
+
+    auto studio_model(const ModelHandle *m) -> const StudioModel * {
+        return_virtual_func(studio_model, 28, 0, 0, 0, m);
+    }
+};
+
+// This should only be used for debugging.
+// For real output use the overlay
+class DebugOverlay {
+public:
+    using OverlayText_t = void;
+
+    virtual void add_entity_text_overlay(int ent_index, int line_offset, float duration, int r, int g, int b, int a, const char *format, ...)                                                                         = 0;
+    virtual void add_box_overlay(const Math::Vector &origin, const Math::Vector &mins, const Math::Vector &max, const Math ::Vector &orientation, int r, int g, int b, int a, float duration)                         = 0;
+    virtual void add_triangle_overlay(const Math::Vector &p1, const Math::Vector &p2, const Math::Vector &p3, int r, int g, int b, int a, bool no_depth_test, float duration)                                         = 0;
+    virtual void add_line_overlay(const Math::Vector &origin, const Math::Vector &dest, int r, int g, int b, bool no_depth_test, float duration)                                                                      = 0;
+    virtual void add_text_overlay(const Math::Vector &origin, float duration, const char *format, ...)                                                                                                                = 0;
+    virtual void add_text_overlay(const Math::Vector &origin, int line_offset, float duration, const char *format, ...)                                                                                               = 0;
+    virtual void add_screen_text_overlay(float x_pos, float y_pos, float duration, int r, int g, int b, int a, const char *text)                                                                                      = 0;
+    virtual void add_swept_box_overlay(const Math::Vector &start, const Math::Vector &end, const Math::Vector &mins, const Math::Vector &max, const Math::Vector &angles, int r, int g, int b, int a, float duration) = 0;
+    virtual void add_grid_overlay(const Math::Vector &origin)                                                                                                                                                         = 0;
+    virtual int  screen_position(const Math::Vector &point, Math::Vector &screen)                                                                                                                                     = 0;
+    virtual int  screen_position(float x_pos, float y_pos, Math::Vector &screen)                                                                                                                                      = 0;
+
+    virtual OverlayText_t *get_first(void)                  = 0;
+    virtual OverlayText_t *get_next(OverlayText_t *current) = 0;
+    virtual void           clear_dead_overlays()            = 0;
+    virtual void           clear_all_overlays()             = 0;
+
+    virtual void add_text_overlay_rgb(const Math::Vector &origin, int line_offset, float duration, float r, float g, float b, float alpha, const char *format, ...) = 0;
+    virtual void add_text_overlay_rgb(const Math::Vector &origin, int line_offset, float duration, int r, int g, int b, int a, const char *format, ...)             = 0;
+
+    virtual void add_line_overlay_alpha(const Math::Vector &origin, const Math::Vector &dest, int r, int g, int b, int a, bool noDepthTest, float duration) = 0;
+    //virtual void add_box_overlay2(const Math::Vector &origin, const Math::Vector &mins, const Math::Vector &max, const Math::Vector &orientation, const Color &faceColor, const Color &edgeColor, float duration) = 0;
 };
 
 } // namespace TF
