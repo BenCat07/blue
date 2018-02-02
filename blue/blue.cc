@@ -3,6 +3,7 @@
 #include "gamesystem.hh"
 #include "log.hh"
 
+#include "class_id.hh"
 #include "hooks.hh"
 #include "interface.hh"
 #include "netvar.hh"
@@ -17,6 +18,7 @@
 DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, BlueModule::Invoke, update);
 DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, BlueModule::Invoke, level_shutdown);
 DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, BlueModule::Invoke, level_startup);
+DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, BlueModule::Invoke, init_all);
 
 class BlueCore : public GameSystem {
     bool inited = false;
@@ -25,19 +27,26 @@ class BlueCore : public GameSystem {
 
 public:
     auto init() -> bool override {
+        // Guard against having init() called by the game and our constructor
+        static bool init_happened = false;
+        if (init_happened) return true;
+
 #ifdef _DEBUG
-        // create a debug console so that we can see the results
-        // of all those lovely asserts
-        //assert(AllocConsole() != 0);
-        //freopen("CONOUT$", "w", stdout);
-        //freopen("CONOUT$", "w", stderr);
+            // create a debug console so that we can see the results
+            // of all those lovely asserts
+            //assert(AllocConsole() != 0);
+            //freopen("CONOUT$", "w", stdout);
+            //freopen("CONOUT$", "w", stderr);
 #endif
 
         Log::msg("init()");
+        init_happened = true;
         return true;
     }
     auto post_init() -> void override {
         Log::msg("post_init()");
+
+        // Get interfaces here before init_all has a chance to do anything
 
         IFace<TF::Client>().set_from_interface("client", "VClient");
         IFace<TF::Engine>().set_from_interface("engine", "VEngineClient");
@@ -49,10 +58,16 @@ public:
             *Signature::find_pattern<TF::ClientMode **>("client", "B9 ? ? ? ? A3 ? ? ? ? E8 ? ? ? ? 68 ? ? ? ? E8 ? ? ? ? 83 C4 04 C7 05", 1));
         IFace<TF::ModelInfo>().set_from_interface("engine", "VModelInfoClient");
         IFace<TF::Trace>().set_from_interface("engine", "EngineTraceClient");
-        IFace<TF::DebugOverlay>().set_from_interface("engine", "VDebugOverlay003");
+        IFace<TF::DebugOverlay>().set_from_interface("engine", "VDebugOverlay");
+        IFace<TF::PlayerInfoManager>().set_from_interface("server", "PlayerInfoManager");
+        IFace<TF::Globals>().set_from_pointer(IFace<TF::PlayerInfoManager>()->globals());
+        IFace<TF::GameMovement>().set_from_interface("client", "GameMovement");
+        IFace<TF::Prediction>().set_from_interface("client", "VClientPrediction");
     }
     auto process_attach() -> void {
         Log::msg("process_attach()");
+
+        // TODO: should these two be modules??
 
         // make sure that the netvars are initialised
         // becuase their dynamic initialiser could be after the
@@ -62,11 +77,22 @@ public:
         // register all convars now that we have the interfaces we need
         Convar_Base::init_all();
 
+        // Make sure that all our class_ids are correct
+        // This will only do anything on debug builds and not on release builds.
+        TF::ClassID::InternalChecker::ClassIDChecker::check_all_correct();
+
+        // call our modules init
+        ModuleList_call_init_all();
+
         // at this point we are now inited and ready to go!
         inited = true;
     }
 
-    auto shutdown() -> void override { Log::msg("shutdown()"); }
+    auto shutdown() -> void override {
+        // TODO: shutdown_all()
+
+        Log::msg("shutdown()");
+    }
 
     auto level_init_pre_entity() -> void override { Log::msg("init_pre_entity()"); }
     auto level_init_post_entity() -> void override {

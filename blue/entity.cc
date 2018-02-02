@@ -33,3 +33,11 @@ auto Entity::to_player() -> class Player * {
 auto Entity::client_class() -> struct ClientClass * {
     return_virtual_func(client_class, 2, 0, 0, 8);
 }
+
+auto Entity::dormant() -> bool {
+    return_virtual_func(dormant, 8, 0, 0, 8);
+}
+
+auto Entity::index() -> u32 {
+    return_virtual_func(index, 9, 0, 0, 8);
+}

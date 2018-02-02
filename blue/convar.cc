@@ -156,7 +156,7 @@ public:
 #define DEFINE_THUNK(type, name, real_name)                              \
     static auto __fastcall name(IConVar *ecx, void *edx, type v)->void { \
         auto *real = ConCommandBase::from_iconvar(ecx);                  \
-        real->##real_name(v);                                            \
+        real->real_name(v);                                              \
     }
 
     DEFINE_THUNK(const char *, set_value_string_thunk, set_value);

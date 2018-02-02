@@ -12,9 +12,9 @@
 
 namespace TF {
 class UserCmd {
+public:
     virtual ~UserCmd(){};
 
-public:
     int          command_number;
     int          tick_count;
     Math::Vector viewangles;
@@ -86,6 +86,31 @@ public:
     }
 };
 
+class Globals {
+public:
+    float realtime;
+    int   framecount;
+
+    float absolute_frametime;
+    float curtime;
+
+    float frametime;
+
+    int max_clients;
+
+    int   tickcount;
+    float interval_per_tick;
+
+    float interpolation_amount;
+    int   sim_ticks_this_frame;
+
+    int network_protocol;
+
+    class CSaveRestoreData *save_data;
+
+    bool is_client;
+};
+
 class Engine {
 public:
     Engine() = delete;
@@ -109,6 +134,10 @@ public:
     auto net_channel_info() -> NetChannel * {
         return_virtual_func(net_channel_info, 72, 72, 72, 0);
     }
+
+    auto is_box_visible(const Math::Vector &min, const Math::Vector &max) -> bool {
+        return_virtual_func(is_box_visible, 31, 31, 31, 0, min, max);
+    }
 };
 
 class EntList {
@@ -129,6 +158,8 @@ public:
 
     class EntityRange {
         EntList *parent;
+
+        u32 max_entity;
 
     public:
         class Iterator {
@@ -160,21 +191,19 @@ public:
             }
         };
 
-        EntityRange(EntList *parent) : parent(parent) {}
+        EntityRange(EntList *parent) : parent(parent), max_entity(parent->max_entity_index()) {}
 
-        auto begin() {
-            return Iterator(parent);
-        }
+        explicit EntityRange(EntList *parent, u32 max_entity) : parent(parent), max_entity(max_entity) {}
 
-        auto end() {
-            return Iterator(parent->max_entity_index(), parent);
-        }
+        auto begin() { return Iterator(parent); }
+
+        auto end() { return Iterator(max_entity, parent); }
     };
 
-    auto get_range() {
-        return EntityRange(this);
-    }
-};
+    auto get_range() { return EntityRange(this); }
+    auto get_range(u32 max_entity) { return EntityRange(this, max_entity); }
+
+}; // namespace TF
 
 class Input {
 public:
@@ -361,6 +390,50 @@ public:
 
     virtual void add_line_overlay_alpha(const Math::Vector &origin, const Math::Vector &dest, int r, int g, int b, int a, bool noDepthTest, float duration) = 0;
     //virtual void add_box_overlay2(const Math::Vector &origin, const Math::Vector &mins, const Math::Vector &max, const Math::Vector &orientation, const Color &faceColor, const Color &edgeColor, float duration) = 0;
+};
+
+// This is from server.dll
+class PlayerInfoManager {
+public:
+    auto globals() -> Globals * {
+        return_virtual_func(globals, 1, 1, 1, 0);
+    }
+};
+
+class Prediction {
+public:
+    auto setup_move(Player *player, UserCmd *ucmd, void *helper, void *move) -> void {
+        return_virtual_func(setup_move, 18, 18, 18, 0, player, ucmd, helper, move);
+    }
+    void finish_move(Player *player, UserCmd *ucmd, void *move) {
+        return_virtual_func(finish_move, 19, 19, 19, 0, player, ucmd, move);
+    }
+};
+
+class GameMovement {
+public:
+    void process_movement(Player *player, void *move) {
+        return_virtual_func(process_movement, 1, 1, 1, 0, player, move);
+    }
+};
+
+class AnimationLayer {
+public:
+    int   sequence;
+    float prev_cycle;
+    float weight;
+    int   order;
+
+    float playback_rate;
+    float cycle;
+
+    float layer_anim_time;
+    float layer_fade_outtime;
+
+    float blend_in;
+    float blend_out;
+
+    bool client_blend;
 };
 
 } // namespace TF

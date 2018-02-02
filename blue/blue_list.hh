@@ -1,5 +1,7 @@
 #pragma once
 
+#include <utility>
+
 namespace BlueList {
 
 // Helpers for creating a compile time list of types
@@ -58,15 +60,15 @@ struct ListMakerKey<T, 0> {};
 
 #endif
 
-#define DEFINE_LIST_CALL_FUNCTION_RECURSIVE(list_name, InvokeClass, function_name)                                                         \
-    template <typename Con, typename... Args>                                                                                              \
-    FORCE_INLINE_HINT auto list_name##_call_##function_name##_recursive(Args... args) {                                                    \
-        InvokeClass<Con::Head>::invoke_##function_name(args...);                                                                           \
-        if constexpr (std::is_same_v<Con::Tail, BlueList::Nil> == false) list_name##_call_##function_name##_recursive<Con::Tail>(args...); \
-    }                                                                                                                                      \
-    template <typename... Args>                                                                                                            \
-    FORCE_INLINE_HINT auto list_name##_call_##function_name(Args... args) {                                                                \
-        list_name##_call_##function_name##_recursive<list_name>(args...);                                                                  \
+#define DEFINE_LIST_CALL_FUNCTION_RECURSIVE(list_name, InvokeClass, function_name)                                                                           \
+    template <typename Con, typename... Args>                                                                                                                \
+    FORCE_INLINE_HINT auto list_name##_call_##function_name##_recursive(Args... args) {                                                                      \
+        InvokeClass<typename Con::Head>::invoke_##function_name(args...);                                                                                    \
+        if constexpr (std::is_same_v<typename Con::Tail, BlueList::Nil> == false) list_name##_call_##function_name##_recursive<typename Con::Tail>(args...); \
+    }                                                                                                                                                        \
+    template <typename... Args>                                                                                                                              \
+    FORCE_INLINE_HINT auto list_name##_call_##function_name(Args... args) {                                                                                  \
+        list_name##_call_##function_name##_recursive<list_name>(args...);                                                                                    \
     }
 
 // Helper define so that derived classes do not have to implement all the functions that the base module class does

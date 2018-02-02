@@ -45,29 +45,13 @@
 // clang-format on
 
 namespace BluePlatform {
-constexpr bool windows() {
-    return blueplatform_windows();
-}
+constexpr bool windows() { return blueplatform_windows(); }
+constexpr bool linux() { return blueplatform_linux(); }
+constexpr bool osx() { return blueplatform_osx(); }
 
-constexpr bool linux() {
-    return blueplatform_linux();
-}
-
-constexpr bool osx() {
-    return blueplatform_osx();
-}
-
-constexpr bool msvc() {
-    return blueplatform_msvc();
-}
-
-constexpr bool clang() {
-    return blueplatform_clang();
-}
-
-constexpr bool gcc() {
-    return blueplatform_gcc();
-}
+constexpr bool msvc() { return blueplatform_msvc(); }
+constexpr bool clang() { return blueplatform_clang(); }
+constexpr bool gcc() { return blueplatform_gcc(); }
 } // namespace BluePlatform
 
 // ALWAYS use the types from here unless you are dealing with
@@ -76,5 +60,13 @@ constexpr bool gcc() {
 
 #if blueplatform_windows()
 #define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <Windows.h>
+#endif
+
+#if blueplatform_windows() == false
+// Only windows has these
+#define __fastcall
+#define __stdcall
+#define __cdecl
 #endif

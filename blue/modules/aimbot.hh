@@ -6,6 +6,8 @@
 
 class Aimbot {
 public:
+    static auto init_all() -> void;
+
     static auto update(float frametime) -> void;
 
     static auto create_move(TF::UserCmd *cmd) -> void;

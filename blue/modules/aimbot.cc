@@ -8,6 +8,12 @@
 #include "sdk.hh"
 
 #include "blue_target_list.hh"
+#include "convar.hh"
+
+#include "blue_threadpool.hh"
+
+#include "log.hh"
+#include "math.hh"
 
 #include <algorithm>
 #include <execution>
@@ -27,7 +33,10 @@ Math::Vector local_view;
 
 } // namespace
 
-inline auto clamp_angle(const Math::Vector &angles) {
+// TODO: move this outside of aimbot
+// Other modules may mess the angles up aswell
+// So our best bet is to run this at the end of createmove...
+inline static auto clamp_angle(const Math::Vector &angles) {
     Math::Vector out;
 
     out.x = angles.x;
@@ -46,25 +55,69 @@ inline auto clamp_angle(const Math::Vector &angles) {
     return out;
 }
 
+inline static auto fix_movement_for_new_angles(const Math::Vector &movement, const Math::Vector &old_angles, const Math::Vector &new_angles) {
+    Math::Matrix3x4 rotate_matrix;
+
+    auto delta_angles = new_angles - old_angles;
+    delta_angles      = clamp_angle(delta_angles);
+
+    rotate_matrix.from_angle(delta_angles);
+    return rotate_matrix.rotate_vector(movement);
+}
+
+auto Aimbot::init_all() -> void {
+}
+
 auto Aimbot::update(float frametime) -> void {
 }
 
-auto Aimbot::create_move(TF::UserCmd *cmd) -> void {
-    if (targets.size() > 0) {
-        if (targets[0].first != nullptr) {
-            Math::Vector delta      = targets[0].second - local_view;
-            Math::Vector new_angles = delta.to_angle();
+// TODO: remove
+static auto blue_aimbot_aim_if_not_attack            = Convar<bool>{"blue_aimbot_aim_if_not_attack", true, nullptr};
+static auto blue_aimbot_disallow_attack_if_no_target = Convar<bool>{"blue_aimbot_disallow_attack_if_no_target", true, nullptr};
+static auto blue
 
-            new_angles      = clamp_angle(new_angles);
-            cmd->viewangles = new_angles;
-        }
+    auto
+    Aimbot::create_move(TF::UserCmd *cmd) -> void {
+    if (blue_aimbot_aim_if_not_attack != true) {
+        // check if we are IN_ATTACK
+        if ((cmd->buttons & 1) != 1) return;
+    }
+
+    if (targets.size() > 0 && targets[0].first != nullptr) {
+        Math::Vector delta      = targets[0].second - local_view;
+        Math::Vector new_angles = delta.to_angle();
+        new_angles              = clamp_angle(new_angles);
+
+        Math::Vector new_movement = fix_movement_for_new_angles({cmd->forwardmove, cmd->sidemove, 0}, cmd->viewangles, new_angles);
+
+        cmd->viewangles = new_angles;
+
+        cmd->forwardmove = new_movement.x;
+        cmd->sidemove    = new_movement.y;
+    } else {
+        if (blue_aimbot_disallow_attack_if_no_target == true) cmd->buttons &= ~1;
     }
 }
 
 auto Aimbot::create_move_pre_predict(TF::UserCmd *cmd) -> void {
 }
 
-static auto visible(Entity *e, const Math::Vector &position) {
+// Check it a point is visible to the player
+static auto visible_no_entity(const Math::Vector &position) {
+    ::Trace::TraceResult result;
+    ::Trace::Ray         ray;
+    ::Trace::Filter      f(local_player);
+
+    ray.init(local_view, position);
+
+    IFace<TF::Trace>()->trace_ray(ray, 0x46004003, &f, &result);
+
+    return result.fraction == 1.0f;
+}
+
+static auto blue_aimbot_pedantic_mode = Convar<bool>{"blue_aimbot_pedantic_mode", true, nullptr};
+
+static auto visible(Entity *e, const Math::Vector &position, const int hitbox) {
     ::Trace::TraceResult result;
     ::Trace::Ray         ray;
     ::Trace::Filter      f(local_player);
@@ -72,19 +125,23 @@ static auto visible(Entity *e, const Math::Vector &position) {
     ray.init(local_view, position);
 
     // TODO: projectile prediction checks
-    IFace<TF::Trace>()->trace_ray(ray, 0x4200400B, &f, &result);
+    IFace<TF::Trace>()->trace_ray(ray, 0x46004003, &f, &result);
 
-    if (result.entity == e) return true;
+    if (blue_aimbot_pedantic_mode == true) {
+        if (result.entity == e && result.hitbox == hitbox) return true;
+    } else if (result.entity == e) {
+        return true;
+    }
 
     return false;
 }
 
-static auto multipoint_internal(Entity *e, float granularity, const Math::Vector &centre, Math::Vector &min, const Math::Vector &max, Math::Vector &out) {
+static auto multipoint_internal(Entity *e, float granularity, const int hitbox, const Math::Vector &centre, const Math::Vector &min, const Math::Vector &max, Math::Vector &out) {
     // go from centre to centre min first
     for (float i = 0.0f; i <= 1.0f; i += granularity) {
         Math::Vector point = centre.lerp(min, i);
 
-        if (visible(e, point)) {
+        if (visible(e, point, hitbox)) {
             out = point;
             return true;
         }
@@ -94,7 +151,7 @@ static auto multipoint_internal(Entity *e, float granularity, const Math::Vector
     for (float i = 0.0f; i <= 1.0f; i += granularity) {
         Math::Vector point = centre.lerp(max, i);
 
-        if (visible(e, point)) {
+        if (visible(e, point, hitbox)) {
             out = point;
             return true;
         }
@@ -103,34 +160,60 @@ static auto multipoint_internal(Entity *e, float granularity, const Math::Vector
     return false;
 }
 
-static auto multipoint(Entity *e, const Math::Vector &centre, const Math::Vector &min, const Math::Vector &max, Math::Vector &position_out) {
-    // new multipoint begin
-    float divisor = 5;
+// TODO: remove
+static auto blue_aimbot_debug_show_multipoint  = Convar<bool>{"blue_aimbot_debug_show_multipoint", false, nullptr};
+static auto blue_aimbot_debug_use_threads      = Convar<bool>{"blue_aimbot_debug_use_threads", true, nullptr};
+static auto blue_aimbot_multipoint_granularity = Convar<float>{"blue_aimbot_multipoint_granularity", 2, 0, 10, nullptr};
 
+// TODO: there must be some kind of better conversion we can use here to get a straight line across the hitbox
+static auto multipoint(Player *player, const int hitbox, const Math::Vector &centre, const Math::Vector &min, const Math::Vector &max, Math::Vector &position_out) -> bool {
+    // create a divisor out of the granularity
+    // TODO: precalculate??
+    float divisor = blue_aimbot_multipoint_granularity;
     if (divisor == 0) return false;
-
     float granularity = 1.0f / divisor;
 
-    // Here we need to base our min + max around the centre of the hitbox as they are offsets
-
+    // Create a horizontal cross shape out of this box instead of top left bottom right or visa versa
     Math::Vector centre_min_x = Math::Vector(Math::lerp(0.5, min.x, max.x), min.y, centre.z);
     Math::Vector centre_max_x = Math::Vector(Math::lerp(0.5, min.x, max.x), max.y, centre.z);
 
     Math::Vector centre_min_y = Math::Vector(min.x, Math::lerp(0.5, min.y, max.y), centre.z);
     Math::Vector centre_max_y = Math::Vector(max.x, Math::lerp(0.5, min.y, max.y), centre.z);
 
-    IFace<DebugOverlay>()->add_line_overlay(centre_min_x, centre_max_x, 255, 0, 0, true, 0);
-    IFace<DebugOverlay>()->add_line_overlay(centre_min_y, centre_max_y, 255, 0, 0, true, 0);
+    if (blue_aimbot_debug_show_multipoint == true) {
+        Math::Vector straight_up = Math::Vector{0, 0, 90};
+        Math::Vector cross       = centre.cross(straight_up);
 
-    if (multipoint_internal(e, granularity, centre, centre_min_x, centre_max_x, position_out) == true)
+        IFace<DebugOverlay>()->add_line_overlay(centre, cross, 0, 255, 255, true, 0);
+        IFace<DebugOverlay>()->add_line_overlay(centre, straight_up, 0, 255, 255, true, 0);
+
+        IFace<DebugOverlay>()->add_line_overlay(centre_min_x, centre_max_x, 255, 0, 0, true, 0);
+        IFace<DebugOverlay>()->add_line_overlay(centre_min_y, centre_max_y, 255, 0, 0, true, 0);
+    }
+
+    if (multipoint_internal(player, granularity, hitbox, centre, centre_min_x, centre_max_x, position_out) == true)
         return true;
-    else if (multipoint_internal(e, granularity, centre, centre_min_y, centre_max_y, position_out) == true)
+    else if (multipoint_internal(player, granularity, hitbox, centre, centre_min_y, centre_max_y, position_out) == true)
         return true;
 
     return false;
 }
 
+static auto find_best_box() {
+    auto tf_class        = local_player->tf_class();
+    auto weapon_class_id = local_weapon->client_class()->class_id;
+
+    switch (tf_class) {
+    case 2:                                                         // sniper
+        if (weapon_class_id == 305) return std::make_pair(0, true); // aim head with the rifle
+    default:
+        return std::make_pair(3, false); // chest
+    }
+}
+
 auto Aimbot::visible_target(Entity *e, Math::Vector &pos, bool &visible) -> void {
+    if (local_weapon == nullptr) return;
+
     // TODO: should entity have a to_player_nocheck() method
     // as we already know at this point that this is a player...
     auto player = e->to_player();
@@ -138,23 +221,32 @@ auto Aimbot::visible_target(Entity *e, Math::Vector &pos, bool &visible) -> void
     Player::PlayerHitboxes hitboxes;
     u32                    hitboxes_count = player->hitboxes(&hitboxes, false);
 
+    auto best_box = find_best_box();
+
     // check best hitbox first
-    if (::visible(e, hitboxes.centre[0])) {
-        pos     = hitboxes.centre[0];
+    if (::visible(e, hitboxes.centre[best_box.first], best_box.first)) {
+        pos     = hitboxes.centre[best_box.first];
         visible = true;
         return;
-    } else if (multipoint(e, hitboxes.centre[0], hitboxes.min[0], hitboxes.max[0], pos)) {
+    } else if (multipoint(player, best_box.first, hitboxes.centre[best_box.first], hitboxes.min[best_box.first], hitboxes.max[best_box.first], pos)) {
         visible = true;
         return;
     }
 
-    // TODO: choose hitbox based on current weapon
+    // .second is whether we should only check the best box
+    if (best_box.second == true) return;
+
     for (u32 i = 0; i < hitboxes_count; i++) {
-        if (::visible(e, hitboxes.centre[i])) {
+        if (::visible(e, hitboxes.centre[i], i)) {
             pos     = hitboxes.centre[i];
             visible = true;
             return;
-        } else if (multipoint(e, hitboxes.centre[i], hitboxes.min[i], hitboxes.max[i], pos)) {
+        }
+    }
+
+    // Perform multiboxing after confirming that we do not have any other options
+    for (u32 i = 0; i < hitboxes_count; i++) {
+        if (multipoint(player, i, hitboxes.centre[i], hitboxes.min[i], hitboxes.max[i], std::ref(pos))) {
             visible = true;
             return;
         }
@@ -179,11 +271,8 @@ auto Aimbot::valid_target(Entity *e, bool &valid) -> void {
 
 auto Aimbot::flush_targets() -> void {
     next_index = 0;
-    targets.clear();
-    targets.resize(IFace<EntList>()->max_entity_index());
 
     // deal with some local data that we want to keep around
-
     local_player = Player::local();
     assert(local_player);
 
@@ -191,6 +280,9 @@ auto Aimbot::flush_targets() -> void {
 
     local_team = local_player->team();
     local_view = local_player->view_position();
+
+    targets.clear();
+    targets.resize(IFace<EntList>()->max_entity_index());
 }
 
 auto Aimbot::finished_target(Target t) -> void {

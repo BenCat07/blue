@@ -1,5 +1,7 @@
 #pragma once
 
+#include "blue_platform.hh"
+
 #include "blue_list.hh"
 
 namespace TF {

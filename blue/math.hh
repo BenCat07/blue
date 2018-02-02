@@ -1,5 +1,7 @@
 #pragma once
 
+#include "blue_platform.hh"
+
 #include <cassert>
 #include <cmath>
 #include <float.h>

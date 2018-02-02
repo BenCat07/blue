@@ -10,6 +10,7 @@ namespace BlueModule {
 template <typename Derived>
 class Invoke {
 public:
+    BLUE_CREATE_INVOKE(init_all);
     BLUE_CREATE_INVOKE(create_move_pre_predict);
     BLUE_CREATE_INVOKE(create_move);
     BLUE_CREATE_INVOKE(level_shutdown);
@@ -22,6 +23,8 @@ public:
 START_LIST(ModuleList);
 
 // include modules here
+#include "backtrack.hh"
+ADD_TO_LIST(ModuleList, Backtrack);
 #include "aimbot.hh"
 ADD_TO_LIST(ModuleList, Aimbot);
 #include "module_createmove.hh"

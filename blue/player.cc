@@ -27,6 +27,34 @@ auto Player::origin() -> Math::Vector & {
     return_virtual_func(origin, 9, 0, 0, 0);
 }
 
+auto Player::set_origin(const Math::Vector &v) -> void {
+    if constexpr (BluePlatform::windows()) {
+        static auto original = Signature::find_pattern<void(__thiscall *)(Player *, const Math::Vector &)>("client", "55 8B EC 56 57 8B F1 E8 ? ? ? ? 8B 7D 08 F3 0F 10 07", 0);
+        assert(original);
+        return original(this, v);
+    } else if constexpr (BluePlatform::linux()) {
+        static_assert(BluePlatform::linux() == false);
+    } else if constexpr (BluePlatform::osx()) {
+        static_assert(BluePlatform::osx() == false);
+    }
+}
+
+auto Player::angles() -> Math::Vector & {
+    return_virtual_func(angles, 10, 0, 0, 0);
+}
+
+auto Player::set_angles(const Math::Vector &v) -> void {
+    if constexpr (BluePlatform::windows()) {
+        static auto original = Signature::find_pattern<void(__thiscall *)(Player *, const Math::Vector &)>("client", "55 8B EC 83 EC 60 56 57 8B F1", 0);
+        assert(original);
+        return original(this, v);
+    } else if constexpr (BluePlatform::linux()) {
+        static_assert(BluePlatform::linux() == false);
+    } else if constexpr (BluePlatform::osx()) {
+        static_assert(BluePlatform::osx() == false);
+    }
+}
+
 static auto team = Netvar("DT_BaseEntity", "m_iTeamNum");
 auto        Player::team() -> int {
     return ::team.get<int>(this);
@@ -39,7 +67,22 @@ auto Player::render_bounds() -> std::pair<Math::Vector, Math::Vector> {
 
     func.invoke(ret.first, ret.second);
 
+    auto origin = this->origin();
+
+    ret.first += origin;
+    ret.second += origin;
+
     return ret;
+}
+
+static auto collideable_min = Netvar("DT_BaseEntity", "m_Collision", "m_vecMinsPreScaled");
+static auto collideable_max = Netvar("DT_BaseEntity", "m_Collision", "m_vecMaxsPreScaled");
+auto        TF::Player::collision_bounds() -> std::pair<Math::Vector &, Math::Vector &> {
+
+    auto &min = ::collideable_min.get<Math::Vector>(this);
+    auto &max = ::collideable_max.get<Math::Vector>(this);
+
+    return std::make_pair(std::ref(min), std::ref(max));
 }
 
 static auto view_offset = Netvar("DT_BasePlayer", "localdata", "m_vecViewOffset[0]");
@@ -47,9 +90,81 @@ auto        Player::view_offset() -> Math::Vector & {
     return ::view_offset.get<Math::Vector>(this);
 }
 
+static auto tf_class = Netvar("DT_TFPlayer", "m_PlayerClass", "m_iClass");
+auto        TF::Player::tf_class() -> int {
+    return ::tf_class.get<int>(this);
+}
+
+static auto tick_base = Netvar("DT_BasePlayer", "localdata", "m_nTickBase");
+auto        TF::Player::tick_base() -> int {
+    return ::tick_base.get<int>(this);
+}
+
 static auto active_weapon_handle = Netvar("DT_BaseCombatCharacter", "m_hActiveWeapon");
 auto        Player::active_weapon() -> Entity * {
     return IFace<EntList>()->from_handle(::active_weapon_handle.get<EntityHandle>(this));
+}
+
+static auto sim_time = Netvar("DT_BaseEntity", "m_flSimulationTime");
+auto        Player::sim_time() -> float & {
+    return ::sim_time.get<float>(this);
+}
+
+static auto anim_time = Netvar("DT_BaseEntity", "AnimTimeMustBeFirst", "m_flAnimTime");
+auto        Player::anim_time() -> float & {
+    return ::anim_time.get<float>(this);
+}
+
+static auto cycle = Netvar("DT_BaseAnimating", "serveranimdata", "m_flCycle");
+auto        Player::cycle() -> float & {
+    return ::cycle.get<float>(this);
+}
+
+static auto next_attack = Netvar("DT_BaseCombatCharacter", "bcc_localdata", "m_flNextAttack");
+auto        Player::next_attack() -> float {
+    return ::next_attack.get<float>(this);
+}
+
+auto Player::can_shoot() -> bool {
+    auto player_time = tick_base() * IFace<Globals>()->interval_per_tick;
+
+    return player_time > next_attack();
+}
+
+template <typename T>
+struct UtlVector {
+    T * mem;
+    int alloc_count;
+    int grow_size;
+    int size;
+    T * dbg_elements;
+};
+
+static auto player_anim_layer_vector(Player *p) -> UtlVector<AnimationLayer> & {
+    // TODO: we need a better, cross platform method for doing this.
+    // check for "%8.4f : %30s : %5.3f : %4.2f : %1d\n"
+
+    if constexpr (BluePlatform::windows()) {
+        UtlVector<AnimationLayer> *anim_overlays = reinterpret_cast<UtlVector<AnimationLayer> *>(p + 2216);
+        return *anim_overlays;
+    } else if constexpr (BluePlatform::linux()) {
+        static_assert(BluePlatform::linux() == false);
+    } else if constexpr (BluePlatform::osx()) {
+        static_assert(BluePlatform::osx() == false);
+    }
+}
+
+auto Player::anim_layer(u32 index) -> AnimationLayer & {
+    return player_anim_layer_vector(this).mem[index];
+}
+
+auto Player::anim_layer_count() -> u32 {
+    return player_anim_layer_vector(this).size;
+}
+
+static auto sequence = Netvar("DT_BaseAnimating", "m_nSequence");
+auto        Player::sequence() -> int & {
+    return ::sequence.get<int>(this);
 }
 
 auto Player::view_position() -> Math::Vector {
