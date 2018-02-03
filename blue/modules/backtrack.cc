@@ -20,23 +20,6 @@ enum {
 // Storage for a tick
 class BacktrackRecord {
 public:
-    struct AnimationLayer {
-        int   sequence;
-        float cycle;
-        float weight;
-        float order;
-
-        float layer_animtime;
-        float layer_fadetime;
-
-        float blendin;
-        float blendout;
-
-        bool client_blend;
-
-        float playback_rate;
-    };
-
     // animation related
     std::array<AnimationLayer, backtrack_max_anim_layers> animation_layers;
     std::array<float, 15>                                 pose_parameters;
@@ -165,11 +148,11 @@ auto Backtrack::create_move(UserCmd *cmd) -> void {
             layer_record.weight   = layer.weight;
             layer_record.order    = layer.order;
 
-            layer_record.layer_animtime = layer.layer_anim_time;
-            layer_record.layer_fadetime = layer.layer_fade_outtime;
+            layer_record.layer_anim_time = layer.layer_anim_time;
+            layer_record.layer_fade_time = layer.layer_fade_outtime;
 
-            layer_record.blendin  = layer.blend_in;
-            layer_record.blendout = layer.blend_out;
+            layer_record.blend_in  = layer.blend_in;
+            layer_record.blend_out = layer.blend_out;
 
             layer_record.client_blend = layer.client_blend;
 
@@ -212,11 +195,11 @@ static auto restore_player_to_record(TF::Player *p, const BacktrackRecord &r) {
         layer.weight   = layer_record.weight;
         layer.order    = layer_record.order;
 
-        layer.layer_anim_time    = layer_record.layer_animtime;
-        layer.layer_fade_outtime = layer_record.layer_fadetime;
+        layer.layer_anim_time    = layer_record.layer_anim_time;
+        layer.layer_fade_outtime = layer_record.layer_fade_time;
 
-        layer.blend_in  = layer_record.blendin;
-        layer.blend_out = layer_record.blendout;
+        layer.blend_in  = layer_record.blend_in;
+        layer.blend_out = layer_record.blend_out;
 
         layer.client_blend = layer_record.client_blend;
 
