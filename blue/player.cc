@@ -121,14 +121,14 @@ auto        Player::cycle() -> float & {
 }
 
 static auto next_attack = Netvar("DT_BaseCombatCharacter", "bcc_localdata", "m_flNextAttack");
-auto        Player::next_attack() -> float {
+auto        Player::next_attack_after_reload() -> float {
     return ::next_attack.get<float>(this);
 }
 
 auto Player::can_shoot() -> bool {
     auto player_time = tick_base() * IFace<Globals>()->interval_per_tick;
 
-    return player_time > next_attack();
+    return player_time > next_attack_after_reload();
 }
 
 template <typename T>
@@ -183,7 +183,7 @@ auto Player::studio_model() -> const StudioModel * {
     return IFace<ModelInfo>()->studio_model(this->model_handle());
 }
 
-static auto get_hitboxes_internal(Player *player, const StudioModel *model, Player::PlayerHitboxes *hitboxes, bool create_pose) {
+static auto get_hitboxes_internal(Player *player, const StudioModel *model, PlayerHitboxes *hitboxes, bool create_pose) {
     Math::Matrix3x4 bone_to_world[128];
 
     // #define BONE_USED_BY_ANYTHING        0x0007FF00

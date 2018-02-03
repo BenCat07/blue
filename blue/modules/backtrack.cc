@@ -56,6 +56,8 @@ public:
     Math::Vector min_prescaled;
     Math::Vector max_prescaled;
 
+    PlayerHitboxes hitboxes;
+
     // misc
     float   simulation_time;
     float   animation_time;

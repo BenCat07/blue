@@ -8,6 +8,17 @@
 #undef max
 
 namespace TF {
+struct PlayerHitboxes {
+    Math::Vector centre[128];
+
+    Math::Vector min[128];
+    Math::Vector max[128];
+
+    // TODO: temporary fields
+    Math::Vector origin[128];
+    Math::Vector rotation[128];
+};
+
 class Player : public Entity {
 public:
     Player() = delete;
@@ -21,17 +32,6 @@ public:
     auto studio_model() -> const class StudioModel *;
 
     auto view_position() -> Math::Vector;
-
-    struct PlayerHitboxes {
-        Math::Vector centre[128];
-
-        Math::Vector min[128];
-        Math::Vector max[128];
-
-        // TODO: temporary fields
-        Math::Vector origin[128];
-        Math::Vector rotation[128];
-    };
 
     auto hitboxes(PlayerHitboxes *hitboxes_out, bool create_pose) -> u32;
 
@@ -53,7 +53,7 @@ public:
     auto cycle() -> float &;
     auto sequence() -> int &;
 
-    auto next_attack() -> float;
+    auto next_attack_after_reload() -> float;
 
     // TODO: return Weapon *
     auto active_weapon() -> Entity *;

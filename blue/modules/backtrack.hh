@@ -13,6 +13,7 @@
 namespace TF {
 class UserCmd;
 class Player;
+struct PlayerHitboxes;
 } // namespace TF
 
 class Backtrack {
@@ -23,6 +24,8 @@ public:
     static auto level_shutdown() -> void;
 
     static auto update_all() -> void;
+
+    static auto update_player_hitboxes(TF::PlayerHitboxes *h) -> void;
 
     static auto backtrack_player_to_tick(TF::Player *p, u32 tick) -> bool;
 };

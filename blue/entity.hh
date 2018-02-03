@@ -25,6 +25,7 @@ public:
 
     // upcasts
     auto to_player() -> class Player *;
+    auto to_weapon() -> class Weapon *;
 
     // virtual functions
     auto client_class() -> struct ClientClass *;

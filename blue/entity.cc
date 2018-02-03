@@ -2,6 +2,7 @@
 
 #include "entity.hh"
 #include "player.hh"
+#include "weapon.hh"
 
 #include "netvar.hh"
 
@@ -28,6 +29,11 @@ auto Entity::to_player() -> class Player * {
     if (clientclass->class_id == 246) return static_cast<class Player *>(this);
 
     return nullptr;
+}
+
+auto Entity::to_weapon() -> class Weapon * {
+    // TODO: checks...
+    return static_cast<class Weapon *>(this);
 }
 
 auto Entity::client_class() -> struct ClientClass * {

@@ -6,6 +6,7 @@
 #include "interface.hh"
 #include "player.hh"
 #include "sdk.hh"
+#include "weapon.hh"
 
 #include "blue_target_list.hh"
 #include "convar.hh"
@@ -26,7 +27,9 @@ std::vector<Target> targets;
 std::atomic_uint    next_index;
 
 Player *local_player;
-Entity *local_weapon;
+Weapon *local_weapon;
+
+bool can_find_targets = false;
 
 int          local_team;
 Math::Vector local_view;
@@ -74,10 +77,8 @@ auto Aimbot::update(float frametime) -> void {
 // TODO: remove
 static auto blue_aimbot_aim_if_not_attack            = Convar<bool>{"blue_aimbot_aim_if_not_attack", true, nullptr};
 static auto blue_aimbot_disallow_attack_if_no_target = Convar<bool>{"blue_aimbot_disallow_attack_if_no_target", true, nullptr};
-static auto blue
 
-    auto
-    Aimbot::create_move(TF::UserCmd *cmd) -> void {
+auto Aimbot::create_move(TF::UserCmd *cmd) -> void {
     if (blue_aimbot_aim_if_not_attack != true) {
         // check if we are IN_ATTACK
         if ((cmd->buttons & 1) != 1) return;
@@ -218,8 +219,8 @@ auto Aimbot::visible_target(Entity *e, Math::Vector &pos, bool &visible) -> void
     // as we already know at this point that this is a player...
     auto player = e->to_player();
 
-    Player::PlayerHitboxes hitboxes;
-    u32                    hitboxes_count = player->hitboxes(&hitboxes, false);
+    PlayerHitboxes hitboxes;
+    u32            hitboxes_count = player->hitboxes(&hitboxes, false);
 
     auto best_box = find_best_box();
 
@@ -276,10 +277,14 @@ auto Aimbot::flush_targets() -> void {
     local_player = Player::local();
     assert(local_player);
 
-    local_weapon = local_player->active_weapon();
+    local_weapon = local_player->active_weapon()->to_weapon();
 
     local_team = local_player->team();
     local_view = local_player->view_position();
+
+    // If we dont have the necessary information (we havent spawned yet or are dead)
+    // then do not attempt to find targets.
+    can_find_targets = local_weapon != nullptr;
 
     targets.clear();
     targets.resize(IFace<EntList>()->max_entity_index());

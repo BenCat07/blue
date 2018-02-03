@@ -1,6 +1,7 @@
 #include "stdafx.hh"
 
 #include "interface.hh"
+#include "log.hh"
 #include "netvar.hh"
 #include "sdk.hh"
 
@@ -44,6 +45,8 @@ auto Netvar::Tree::find_offset(std::vector<const char *> t) -> uptr {
 
     for (auto &name : t) {
 
+        auto old_nodes = nodes;
+
         auto end = nodes->end();
         for (auto it = nodes->begin(); it != end; ++it) {
             auto p = *it;
@@ -54,6 +57,10 @@ auto Netvar::Tree::find_offset(std::vector<const char *> t) -> uptr {
                     total += p.second->p->get_offset();
                 break;
             }
+        }
+
+        if (nodes == old_nodes) {
+            Log::msg("[Netvar] Unable to find '%s'", name);
         }
     }
 
