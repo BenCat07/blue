@@ -60,7 +60,13 @@ public:
         IFace<TF::Trace>().set_from_interface("engine", "EngineTraceClient");
         IFace<TF::DebugOverlay>().set_from_interface("engine", "VDebugOverlay");
         IFace<TF::PlayerInfoManager>().set_from_interface("server", "PlayerInfoManager");
+
         IFace<TF::Globals>().set_from_pointer(IFace<TF::PlayerInfoManager>()->globals());
+
+        auto globals_server_address = (u32)IFace<TF::Globals>().get();
+        auto globals_real_address   = (u32)*Signature::find_pattern<TF::Globals **>("engine", "A1 ? ? ? ? 8B 11 68", 8);
+        IFace<TF::Globals>().set_from_pointer((TF::Globals *)globals_real_address);
+
         IFace<TF::GameMovement>().set_from_interface("client", "GameMovement");
         IFace<TF::Prediction>().set_from_interface("client", "VClientPrediction");
     }

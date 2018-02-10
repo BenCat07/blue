@@ -16,6 +16,8 @@ auto find_pattern(const char *module, const char *pattern, u32 offset) -> T {
 }
 auto resolve_callgate(void *address) -> void *;
 
+// TODO: there must be some way we can do this at init time instead of using magic statics.
+// make a static chain and find them at level_init or at init_all
 class Pattern {
     const char *module;
     const char *signature;

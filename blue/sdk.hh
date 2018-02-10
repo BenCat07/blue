@@ -138,6 +138,10 @@ public:
     auto is_box_visible(const Math::Vector &min, const Math::Vector &max) -> bool {
         return_virtual_func(is_box_visible, 31, 31, 31, 0, min, max);
     }
+
+    auto max_clients() -> u32 {
+        return_virtual_func(max_clients, 21, 21, 21, 0);
+    }
 };
 
 class EntList {
@@ -191,7 +195,7 @@ public:
             }
         };
 
-        EntityRange(EntList *parent) : parent(parent), max_entity(parent->max_entity_index()) {}
+        EntityRange(EntList *parent) : parent(parent), max_entity(parent->max_entity_index() - 1) {}
 
         explicit EntityRange(EntList *parent, u32 max_entity) : parent(parent), max_entity(max_entity) {}
 
@@ -335,8 +339,8 @@ public:
     int bone_controllers_count;
     int bone_controller_index;
 
-    int hitbox_sets_count;
-    int hitbox_set_index;
+    u32 hitbox_sets_count;
+    u32 hitbox_set_index;
 
     const auto hitbox_set(u32 index) const {
         assert(index < hitbox_sets_count);
@@ -428,7 +432,7 @@ public:
     float cycle;
 
     float layer_anim_time;
-    float layer_fade_outtime;
+    float layer_fade_time;
 
     float blend_in;
     float blend_out;

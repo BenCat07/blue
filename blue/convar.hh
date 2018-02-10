@@ -185,7 +185,12 @@ public:
         memset(temp[cur_index], 0, sizeof(temp));
 #endif
 
-        return _itoa(value, temp[cur_index], 10);
+#if blueplatform_windows()
+        _itoa_s(value, temp[cur_index], 10);
+#else
+        itoa(value, temp[cur_index], 10);
+#endif
+        return temp[cur_index];
     }
 
     operator int() const { return value; }

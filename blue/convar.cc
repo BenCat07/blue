@@ -142,7 +142,12 @@ public:
 
         auto new_len = strlen(new_value) + 1;
         value_string = new char[new_len];
+
+#if blueplatform_windows()
+        strcpy_s(value_string, new_len, new_value);
+#else
         strncpy(value_string, new_value, new_len);
+#endif
         value_string_length = new_len;
 
         if (change_callback != nullptr) change_callback(to_iconvar(), new_value, old_value);

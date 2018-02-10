@@ -56,8 +56,11 @@ auto CreateMoveModule::level_shutdown() -> void {
 
 DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, BlueModule::Invoke, create_move);
 DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, BlueModule::Invoke, create_move_pre_predict);
+DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, BlueModule::Invoke, create_move_finish);
 
 //DEFINE_LIST_CALL_FUNCTION_RECURSIVE(TargetList, BlueTarget::Invoke, is_valid_target);
+
+//#define threaded_targetsystem
 
 template <typename Invoker>
 static auto check_visible(Entity *e) {
@@ -82,7 +85,11 @@ static auto think_target_recursive(Entity *e) {
     bool is_valid = false;
     if (Invoker::invoke_valid_target(e, std::ref(is_valid)), is_valid == false) return;
 
+#ifdef threaded_targetsystem
     target_futures.push_back(target_threadpool->submit(&check_visible<Invoker>, e));
+#else
+    check_visible<Invoker>(e);
+#endif
 
     if constexpr (std::is_same_v<typename Con::Tail, BlueList::Nil> == false) think_target_recursive<Con::Tail>();
 }
@@ -113,7 +120,9 @@ static auto sort_targets_recursive() {
 // for multiple target handlers... which will waste alot of cycles
 template <typename Con>
 static void think_targets() {
+#ifdef threaded_targetsystem
     target_futures.clear();
+#endif
     flush_targets_recursive<Con>();
 
     u32 futures_index = 0;
@@ -124,8 +133,10 @@ static void think_targets() {
         think_target_recursive<Con>(e);
     }
 
+#ifdef threaded_targetsystem
     // Wait for all threads to finish
     for (auto &f : target_futures) f.get();
+#endif
 
     sort_targets_recursive<Con>();
 }
@@ -169,5 +180,8 @@ bool __fastcall hooked_create_move(void *instance, void *edx, float sample_frame
     think_targets<TargetList>();
 
     ModuleList_call_create_move(user_cmd);
+
+    ModuleList_call_create_move_finish(user_cmd);
+
     return false;
 }

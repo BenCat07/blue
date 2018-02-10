@@ -18,14 +18,20 @@ struct PlayerHitboxes;
 
 class Backtrack {
 public:
-    static auto create_move(TF::UserCmd *cmd) -> void;
+    // The max number of ticks you can go back
+    enum { max_ticks = 15 };
+
+    //static auto create_move(TF::UserCmd *cmd) -> void;
 
     static auto level_startup() -> void;
     static auto level_shutdown() -> void;
 
-    static auto update_all() -> void;
+    static auto create_move_pre_predict(TF::UserCmd *cmd) -> void;
+    static auto create_move(TF::UserCmd *cmd) -> void;
+    static auto create_move_finish(TF::UserCmd *cmd) -> void;
 
-    static auto update_player_hitboxes(TF::PlayerHitboxes *h) -> void;
+    static auto update_player_hitboxes(TF::Player *p, TF::PlayerHitboxes *h, u32 max_hitboxes) -> void;
 
-    static auto backtrack_player_to_tick(TF::Player *p, u32 tick) -> bool;
+    static auto backtrack_player_to_tick(TF::Player *p, u32 tick, bool restoring = false) -> bool;
+    static auto get_hitboxes_for_player_at_tick(TF::Player *p, u32 tick, TF::PlayerHitboxes *h) -> void;
 };

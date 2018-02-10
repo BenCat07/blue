@@ -13,6 +13,7 @@ public:
     BLUE_CREATE_INVOKE(init_all);
     BLUE_CREATE_INVOKE(create_move_pre_predict);
     BLUE_CREATE_INVOKE(create_move);
+    BLUE_CREATE_INVOKE(create_move_finish);
     BLUE_CREATE_INVOKE(level_shutdown);
     BLUE_CREATE_INVOKE(level_startup);
     BLUE_CREATE_INVOKE(update);
@@ -23,11 +24,11 @@ public:
 START_LIST(ModuleList);
 
 // include modules here
-#include "backtrack.hh"
-ADD_TO_LIST(ModuleList, Backtrack);
 #include "aimbot.hh"
 ADD_TO_LIST(ModuleList, Aimbot);
 #include "module_createmove.hh"
 ADD_TO_LIST(ModuleList, CreateMoveModule);
+#include "backtrack.hh"
+ADD_TO_LIST(ModuleList, Backtrack);
 
 END_LIST(ModuleList);

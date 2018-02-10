@@ -131,6 +131,11 @@ auto Player::can_shoot() -> bool {
     return player_time > next_attack_after_reload();
 }
 
+static auto render_origin = Netvar("DT_BaseEntity", "m_vecOrigin");
+auto        Player::render_origin() -> Math::Vector & {
+    return ::render_origin.get<Math::Vector>(this);
+}
+
 template <typename T>
 struct UtlVector {
     T * mem;
@@ -160,6 +165,24 @@ auto Player::anim_layer(u32 index) -> AnimationLayer & {
 
 auto Player::anim_layer_count() -> u32 {
     return player_anim_layer_vector(this).size;
+}
+
+auto Player::update_client_side_animation() -> void {
+    // Look for the string "UpdateClientSideAnimations
+    return_virtual_func(update_client_side_animation, 191, 0, 0, 0);
+}
+
+auto Player::invalidate_physics_recursive(u32 flags) -> void {
+    typedef void(__thiscall * InvalidatePhysicsRecursiveFn)(Player *, u32 flags);
+
+    if constexpr (BluePlatform::windows()) {
+        static auto fn = Signature::find_pattern<InvalidatePhysicsRecursiveFn>("client", "55 8B EC 51 53 8B 5D 08 56 8B F3 83 E6 04", 0);
+        fn(this, flags);
+    } else if constexpr (BluePlatform::linux()) {
+        static_assert(BluePlatform::linux() == false);
+    } else if constexpr (BluePlatform::osx()) {
+        static_assert(BluePlatform::osx() == false);
+    }
 }
 
 static auto sequence = Netvar("DT_BaseAnimating", "m_nSequence");
@@ -222,6 +245,8 @@ static auto get_hitboxes_internal(Player *player, const StudioModel *model, Play
         hitboxes->max[i]      = origin + rotated_max;
         hitboxes->rotation[i] = rotation;
         hitboxes->origin[i]   = origin;
+        hitboxes->raw_min[i]  = box->min;
+        hitboxes->raw_max[i]  = box->max;
     }
 
     return hitboxes_count;

@@ -17,6 +17,9 @@ struct PlayerHitboxes {
     // TODO: temporary fields
     Math::Vector origin[128];
     Math::Vector rotation[128];
+
+    Math::Vector raw_min[128];
+    Math::Vector raw_max[128];
 };
 
 class Player : public Entity {
@@ -55,6 +58,8 @@ public:
 
     auto next_attack_after_reload() -> float;
 
+    auto render_origin() -> Math::Vector &;
+
     // TODO: return Weapon *
     auto active_weapon() -> Entity *;
 
@@ -69,6 +74,10 @@ public:
 
     auto anim_layer(u32 index) -> class AnimationLayer &;
     auto anim_layer_count() -> u32;
+
+    auto update_client_side_animation() -> void;
+
+    auto invalidate_physics_recursive(u32 flags) -> void;
 
     // These are relative to the origin
     auto collision_bounds() -> std::pair<Math::Vector &, Math::Vector &>;

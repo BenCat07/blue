@@ -2,6 +2,7 @@
 
 #include "aimbot.hh"
 
+#include "backtrack.hh"
 #include "entity.hh"
 #include "interface.hh"
 #include "player.hh"
@@ -34,6 +35,10 @@ bool can_find_targets = false;
 int          local_team;
 Math::Vector local_view;
 
+// TODO: HORRIBLE HACK
+// this needs to be done on a per target basis and not like this !!!
+u32 cmd_delta = 0;
+
 } // namespace
 
 // TODO: move this outside of aimbot
@@ -52,8 +57,8 @@ inline static auto clamp_angle(const Math::Vector &angles) {
     while (out.y > 180.0f) out.y -= 360.0f;
     while (out.y < -180.0f) out.y += 360.0f;
 
-    assert(out.x < 89.0f && out.x > -89.0f);
-    assert(out.y < 180.0f && out.y > -180.0f);
+    out.y = std::clamp(out.y, -180.0f, 180.0f);
+    out.x = std::clamp(out.x, -90.0f, 90.0f);
 
     return out;
 }
@@ -78,7 +83,14 @@ auto Aimbot::update(float frametime) -> void {
 static auto blue_aimbot_aim_if_not_attack            = Convar<bool>{"blue_aimbot_aim_if_not_attack", true, nullptr};
 static auto blue_aimbot_disallow_attack_if_no_target = Convar<bool>{"blue_aimbot_disallow_attack_if_no_target", true, nullptr};
 
+static auto blue_aimbot_silent    = Convar<bool>{"blue_aimbot_silent", true, nullptr};
+static auto blue_aimbot_autoshoot = Convar<bool>{"blue_aimbot_autoshoot", false, nullptr};
+
+static auto blue_aimbot_only_shoot_when_backtracked_atleast_10_ticks = Convar<bool>("blue_aimbot_only_shoot_when_backtracked_atleast_10_ticks", false, nullptr);
+
 auto Aimbot::create_move(TF::UserCmd *cmd) -> void {
+    if (local_weapon == nullptr) return;
+
     if (blue_aimbot_aim_if_not_attack != true) {
         // check if we are IN_ATTACK
         if ((cmd->buttons & 1) != 1) return;
@@ -91,12 +103,28 @@ auto Aimbot::create_move(TF::UserCmd *cmd) -> void {
 
         Math::Vector new_movement = fix_movement_for_new_angles({cmd->forwardmove, cmd->sidemove, 0}, cmd->viewangles, new_angles);
 
-        cmd->viewangles = new_angles;
+        if (local_weapon->can_shoot()) {
+            cmd->viewangles = new_angles;
 
-        cmd->forwardmove = new_movement.x;
-        cmd->sidemove    = new_movement.y;
+            if (blue_aimbot_autoshoot == true) cmd->buttons |= 1;
+
+            cmd->forwardmove = new_movement.x;
+            cmd->sidemove    = new_movement.y;
+
+            cmd->tick_count -= cmd_delta;
+        }
     } else {
         if (blue_aimbot_disallow_attack_if_no_target == true) cmd->buttons &= ~1;
+    }
+
+    if (blue_aimbot_only_shoot_when_backtracked_atleast_10_ticks == true) {
+        if (cmd_delta < 10) {
+            cmd->buttons &= ~1;
+        }
+    }
+
+    if (blue_aimbot_silent == false) {
+        // TODO: Engine needs SetViewAngles
     }
 }
 
@@ -127,6 +155,9 @@ static auto visible(Entity *e, const Math::Vector &position, const int hitbox) {
 
     // TODO: projectile prediction checks
     IFace<TF::Trace>()->trace_ray(ray, 0x46004003, &f, &result);
+
+    //IFace<DebugOverlay>()->add_line_overlay(local_view, position, 0, 255, 0, true, -1.0f);
+    //IFace<DebugOverlay>()->add_box_overlay(result.end_pos, {-2, -2, -2}, {2, 2, 2}, {0, 0, 0}, 255, 0, 0, 255, -1.0f);
 
     if (blue_aimbot_pedantic_mode == true) {
         if (result.entity == e && result.hitbox == hitbox) return true;
@@ -212,6 +243,8 @@ static auto find_best_box() {
     }
 }
 
+static auto blue_aimbot_enable_backtrack = Convar<bool>{"blue_aimbot_enable_backtrack", false, nullptr};
+
 auto Aimbot::visible_target(Entity *e, Math::Vector &pos, bool &visible) -> void {
     if (local_weapon == nullptr) return;
 
@@ -222,35 +255,60 @@ auto Aimbot::visible_target(Entity *e, Math::Vector &pos, bool &visible) -> void
     PlayerHitboxes hitboxes;
     u32            hitboxes_count = player->hitboxes(&hitboxes, false);
 
-    auto best_box = find_best_box();
+    // Tell backtrack about these hitboxes
+    Backtrack::update_player_hitboxes(player, &hitboxes, hitboxes_count);
 
-    // check best hitbox first
-    if (::visible(e, hitboxes.centre[best_box.first], best_box.first)) {
-        pos     = hitboxes.centre[best_box.first];
-        visible = true;
-        return;
-    } else if (multipoint(player, best_box.first, hitboxes.centre[best_box.first], hitboxes.min[best_box.first], hitboxes.max[best_box.first], pos)) {
-        visible = true;
-        return;
-    }
+    auto current_tick = IFace<Globals>()->tickcount;
 
-    // .second is whether we should only check the best box
-    if (best_box.second == true) return;
+    auto delta = 0;
+    while (delta < Backtrack::max_ticks) {
+        cmd_delta = delta;
 
-    for (u32 i = 0; i < hitboxes_count; i++) {
-        if (::visible(e, hitboxes.centre[i], i)) {
-            pos     = hitboxes.centre[i];
+        // TODO: there must be a better way to do this...
+        if (delta > 0) Backtrack::get_hitboxes_for_player_at_tick(player, current_tick - delta, &hitboxes);
+
+        auto best_box = find_best_box();
+
+        // check best hitbox first
+        if (::visible(e, hitboxes.centre[best_box.first], best_box.first)) {
+            pos     = hitboxes.centre[best_box.first];
+            visible = true;
+            return;
+        } else if (multipoint(player, best_box.first, hitboxes.centre[best_box.first], hitboxes.min[best_box.first], hitboxes.max[best_box.first], pos)) {
             visible = true;
             return;
         }
-    }
 
-    // Perform multiboxing after confirming that we do not have any other options
-    for (u32 i = 0; i < hitboxes_count; i++) {
-        if (multipoint(player, i, hitboxes.centre[i], hitboxes.min[i], hitboxes.max[i], std::ref(pos))) {
-            visible = true;
-            return;
+        // .second is whether we should only check the best box
+        if (best_box.second != true) {
+            for (u32 i = 0; i < hitboxes_count; i++) {
+                if (::visible(e, hitboxes.centre[i], i)) {
+                    pos     = hitboxes.centre[i];
+                    visible = true;
+                    return;
+                }
+            }
+
+            // Perform multiboxing after confirming that we do not have any other options
+            for (u32 i = 0; i < hitboxes_count; i++) {
+                if (multipoint(player, i, hitboxes.centre[i], hitboxes.min[i], hitboxes.max[i], std::ref(pos))) {
+                    visible = true;
+                    return;
+                }
+            }
         }
+
+        // If we dont want to do backtracking, escape
+        if (blue_aimbot_enable_backtrack == false) break;
+
+        // Backtrack to the previous tick
+        // backtrack_player_to_tick will return false if the player is dead at this tick
+        // so we need to keep trying until we hit the max or we find an alive state
+        auto success = false;
+        do {
+            delta += 1;
+            success = Backtrack::backtrack_player_to_tick(player, current_tick - delta);
+        } while (success == false && delta < Backtrack::max_ticks);
     }
 
     visible = false;
