@@ -96,9 +96,8 @@ auto Backtrack::create_move_pre_predict(UserCmd *cmd) -> void {
 
     auto local_player = Player::local();
 
-    auto real_tick = IFace<Globals>()->tickcount;
-
-    for (auto entity : IFace<EntList>()->get_range(IFace<Engine>()->max_clients())) {
+    // We want to get from entity 1 to entity 32
+    for (auto entity : IFace<EntList>()->get_range(IFace<Engine>()->max_clients() + 1)) {
         if (entity == nullptr) continue;
 
         auto player = entity->to_player();
@@ -108,13 +107,14 @@ auto Backtrack::create_move_pre_predict(UserCmd *cmd) -> void {
 
         // Get the record for this tick and clear it out
         auto  array_index     = entity_index_to_array_index(entity->index());
-        auto &new_record      = record(array_index, real_tick);
-        auto &previous_record = record(array_index, real_tick - 1);
+        auto &new_record      = record(array_index, current_tick);
+        auto &previous_record = record(array_index, current_tick - 1);
 
         // Clean out the record - might not be necessary but a memset is pretty cheap
         new_record.reset();
 
         new_record.alive = player->alive();
+        if (player->dormant() == true) new_record.alive = false;
 
         // If this fails then it is clear to other algorithms whether this record is valid just by looking at this bool
         if (new_record.alive == false) continue;
@@ -141,7 +141,7 @@ auto Backtrack::create_move_pre_predict(UserCmd *cmd) -> void {
 
         new_record.master_cycle    = player->cycle();
         new_record.master_sequence = player->sequence();
-        new_record.this_tick       = real_tick;
+        new_record.this_tick       = current_tick;
 
         auto layer_count = player->anim_layer_count();
 #ifdef _DEBUG
@@ -178,47 +178,44 @@ auto Backtrack::create_move_pre_predict(UserCmd *cmd) -> void {
 }
 
 // TODO: remove
-static Math::Vector hullcolor[8] =
-    {
-        Math::Vector(1.0, 1.0, 1.0),
-        Math::Vector(1.0, 0.5, 0.5),
-        Math::Vector(0.5, 1.0, 0.5),
-        Math::Vector(1.0, 1.0, 0.5),
-        Math::Vector(0.5, 0.5, 1.0),
-        Math::Vector(1.0, 0.5, 1.0),
-        Math::Vector(0.5, 1.0, 1.0),
-        Math::Vector(1.0, 1.0, 1.0)};
+static Math::Vector hullcolor[8] = {
+    Math::Vector(1.0, 1.0, 1.0),
+    Math::Vector(1.0, 0.5, 0.5),
+    Math::Vector(0.5, 1.0, 0.5),
+    Math::Vector(1.0, 1.0, 0.5),
+    Math::Vector(0.5, 0.5, 1.0),
+    Math::Vector(1.0, 0.5, 1.0),
+    Math::Vector(0.5, 1.0, 1.0),
+    Math::Vector(1.0, 1.0, 1.0),
+};
 
 auto Backtrack::create_move(TF::UserCmd *cmd) -> void {
     for (auto entity : IFace<EntList>()->get_range()) {
-        if (entity->is_valid() == false) return;
+        if (entity->is_valid() == false) continue;
         auto player = entity->to_player();
-        if (player == nullptr) return;
+        if (player == nullptr) continue;
 
         auto &record_track = ::record_track(entity_index_to_array_index(player->index()));
 
         for (auto &record : record_track) {
+            if (record.alive == false) break;
+
             IFace<DebugOverlay>()->add_text_overlay(record.origin, 0, "%d", record.this_tick);
 
-            /*
-            if (record.this_tick == cmd->tick_count)
-                for (u32 i = 0; i < record.max_hitboxes; i++) {
-                    auto &hitboxes = record.hitboxes;
+            // if (record.this_tick == cmd->tick_count)
+            //     for (u32 i = 0; i < record.max_hitboxes; i++) {
+            //         auto &hitboxes = record.hitboxes;
 
-                    int j = (record.this_tick % 8);
-                    int r = (int)(255.0f * hullcolor[j].x);
-                    int g = (int)(255.0f * hullcolor[j].y);
-                    int b = (int)(255.0f * hullcolor[j].z);
+            //         int j = (record.this_tick % 8);
+            //         int r = (int)(255.0f * hullcolor[j].x);
+            //         int g = (int)(255.0f * hullcolor[j].y);
+            //         int b = (int)(255.0f * hullcolor[j].z);
 
-                    IFace<DebugOverlay>()->add_box_overlay(hitboxes.origin[i], hitboxes.raw_min[i], hitboxes.raw_max[i], hitboxes.rotation[i], r, g, b, 100, 0);
-                }
-			*/
+            //         IFace<DebugOverlay>()->add_box_overlay(hitboxes.origin[i], hitboxes.raw_min[i], hitboxes.raw_max[i], hitboxes.rotation[i], r, g, b, 100, 0);
+            //     }
         }
     }
 }
-
-// This currently doesnt update tracerays against this player...
-// We need to find another method of doing this (FSN isnt going to work either.)
 
 static auto restore_player_to_record(TF::Player *p, const BacktrackRecord &r) {
     p->set_origin(r.origin);
@@ -238,6 +235,7 @@ static auto restore_player_to_record(TF::Player *p, const BacktrackRecord &r) {
         auto        layer        = p->anim_layer(i);
         const auto &layer_record = r.animation_layers[i];
 
+        // TODO: Maybe just memcpy?
         layer.sequence = layer_record.sequence;
         layer.cycle    = layer_record.cycle;
         layer.weight   = layer_record.weight;
@@ -253,10 +251,12 @@ static auto restore_player_to_record(TF::Player *p, const BacktrackRecord &r) {
         layer.playback_rate = layer_record.playback_rate;
     }
 
-    // Update the clientside animation state
+    // Because we changed the animation we need to tell the
+    // animation state about it
     p->update_client_side_animation();
 
     // Make sure to clean out the bone cache so that setupbones returns new values
+    // TODO: We probably dont need to do this becuase we are already have hitboxes for this tick...
 #if blueplatform_windows()
     static auto g_iModelBoneCounter = *(Signature::find_pattern<long **>("client", "A1 ? ? ? ? D9 45 0C", 1));
     assert(g_iModelBoneCounter);
@@ -277,6 +277,7 @@ auto Backtrack::backtrack_player_to_tick(TF::Player *p, u32 tick, bool restoring
 }
 
 auto Backtrack::create_move_finish(TF::UserCmd *cmd) -> void {
+    // Cleanup from whatever has been done
     for (auto &p : players_to_restore) {
         backtrack_player_to_tick(p, current_tick, true);
     }

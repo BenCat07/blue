@@ -83,10 +83,6 @@ public:
         // register all convars now that we have the interfaces we need
         Convar_Base::init_all();
 
-        // Make sure that all our class_ids are correct
-        // This will only do anything on debug builds and not on release builds.
-        TF::ClassID::InternalChecker::ClassIDChecker::check_all_correct();
-
         // call our modules init
         ModuleList_call_init_all();
 
@@ -103,6 +99,12 @@ public:
     auto level_init_pre_entity() -> void override { Log::msg("init_pre_entity()"); }
     auto level_init_post_entity() -> void override {
         Log::msg("level_init_post_entity");
+
+        // Make sure that all our class_ids are correct
+        // This will only do anything on debug builds and not on release builds.
+
+        // This needs to be done here becuase classids arent initialised before we are in game
+        TF::ClassID::InternalChecker::ClassIDChecker::check_all_correct();
 
         ModuleList_call_level_startup();
     }

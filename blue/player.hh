@@ -14,12 +14,14 @@ struct PlayerHitboxes {
     Math::Vector min[128];
     Math::Vector max[128];
 
-    // TODO: temporary fields
+#ifdef _DEBUG
+    // These are used for debugging
     Math::Vector origin[128];
     Math::Vector rotation[128];
 
     Math::Vector raw_min[128];
     Math::Vector raw_max[128];
+#endif
 };
 
 class Player : public Entity {

@@ -19,24 +19,29 @@ using namespace BlueTarget;
 
 bool __fastcall hooked_create_move(void *instance, void *edx, float sample_framerate, UserCmd *user_cmd);
 
+//#define threaded_targetsystem
+
 namespace {
 
 Hooks::HookFunction<ClientMode, 0> *create_move_hook = nullptr;
 
-BlueThreading::ThreadPool *target_threadpool = nullptr;
-// pointer to array of 2048 futures
+#ifdef threaded_targetsystem
+BlueThreading::ThreadPool *                              target_threadpool = nullptr;
 std::vector<BlueThreading::ThreadPool::TaskFuture<void>> target_futures;
+#endif
 } // namespace
 
 auto CreateMoveModule::level_startup() -> void {
     Log::msg("CreateMoveModule::level_startup()");
 
+#ifdef threaded_targetsystem
     Log::msg("=> Reserving memory");
     target_futures.reserve(2048);
 
     Log::msg("=> creating threadpool");
     assert(target_threadpool == nullptr);
     target_threadpool = new BlueThreading::ThreadPool;
+#endif
 
     Log::msg("=> Hooking up!");
     assert(create_move_hook == nullptr);
@@ -49,18 +54,21 @@ auto CreateMoveModule::level_shutdown() -> void {
     delete create_move_hook;
     create_move_hook = nullptr;
 
+#ifdef threaded_targetsystem
     Log::msg("<= Deleting threadpool");
     delete target_threadpool;
     target_threadpool = nullptr;
+#endif
 }
 
 DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, BlueModule::Invoke, create_move);
 DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, BlueModule::Invoke, create_move_pre_predict);
 DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, BlueModule::Invoke, create_move_finish);
 
-//DEFINE_LIST_CALL_FUNCTION_RECURSIVE(TargetList, BlueTarget::Invoke, is_valid_target);
-
-//#define threaded_targetsystem
+// TODO: for visible targets we need some kind of phase based lookup
+// For example, we want to check whether we have any visible people first
+// and then try to do backtracking instead of doing backtracking before seeing
+// whether we need to.
 
 template <typename Invoker>
 static auto check_visible(Entity *e) {
@@ -83,12 +91,12 @@ static auto think_target_recursive(Entity *e) {
     using Invoker = BlueTarget::Invoke<typename Con::Head>;
 
     bool is_valid = false;
-    if (Invoker::invoke_valid_target(e, std::ref(is_valid)), is_valid == false) return;
+    Invoker::invoke_valid_target(e, std::ref(is_valid));
 
 #ifdef threaded_targetsystem
-    target_futures.push_back(target_threadpool->submit(&check_visible<Invoker>, e));
+    if (is_valid) target_futures.push_back(target_threadpool->submit(&check_visible<Invoker>, e));
 #else
-    check_visible<Invoker>(e);
+    if (is_valid) check_visible<Invoker>(e);
 #endif
 
     if constexpr (std::is_same_v<typename Con::Tail, BlueList::Nil> == false) think_target_recursive<Con::Tail>();
@@ -116,8 +124,6 @@ static auto sort_targets_recursive() {
 // like sorting the entities first and then doing the calulations on them
 
 // recursively deal with targets
-// TODO: this is going to run the entity loop multiple times
-// for multiple target handlers... which will waste alot of cycles
 template <typename Con>
 static void think_targets() {
 #ifdef threaded_targetsystem
@@ -125,9 +131,8 @@ static void think_targets() {
 #endif
     flush_targets_recursive<Con>();
 
-    u32 futures_index = 0;
     for (auto e : IFace<EntList>()->get_range()) {
-        if (e == nullptr) continue;
+        if (e->is_valid() == false) continue;
         if (e->dormant() == true) continue;
 
         think_target_recursive<Con>(e);

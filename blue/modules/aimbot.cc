@@ -86,8 +86,6 @@ static auto blue_aimbot_disallow_attack_if_no_target = Convar<bool>{"blue_aimbot
 static auto blue_aimbot_silent    = Convar<bool>{"blue_aimbot_silent", true, nullptr};
 static auto blue_aimbot_autoshoot = Convar<bool>{"blue_aimbot_autoshoot", false, nullptr};
 
-static auto blue_aimbot_only_shoot_when_backtracked_atleast_10_ticks = Convar<bool>("blue_aimbot_only_shoot_when_backtracked_atleast_10_ticks", false, nullptr);
-
 auto Aimbot::create_move(TF::UserCmd *cmd) -> void {
     if (local_weapon == nullptr) return;
 
@@ -97,13 +95,16 @@ auto Aimbot::create_move(TF::UserCmd *cmd) -> void {
     }
 
     if (targets.size() > 0 && targets[0].first != nullptr) {
+        Log::msg("[Aimbot] has target!");
+        IFace<DebugOverlay>()->add_box_overlay(targets[0].second, {-2, -2, -2}, {2, 2, 2}, {0, 0, 0}, 255, 255, 0, 50, 0);
+
         Math::Vector delta      = targets[0].second - local_view;
         Math::Vector new_angles = delta.to_angle();
         new_angles              = clamp_angle(new_angles);
 
         Math::Vector new_movement = fix_movement_for_new_angles({cmd->forwardmove, cmd->sidemove, 0}, cmd->viewangles, new_angles);
 
-        if (local_weapon->can_shoot()) {
+        if (local_weapon->can_shoot(local_player->tick_base())) {
             cmd->viewangles = new_angles;
 
             if (blue_aimbot_autoshoot == true) cmd->buttons |= 1;
@@ -115,12 +116,6 @@ auto Aimbot::create_move(TF::UserCmd *cmd) -> void {
         }
     } else {
         if (blue_aimbot_disallow_attack_if_no_target == true) cmd->buttons &= ~1;
-    }
-
-    if (blue_aimbot_only_shoot_when_backtracked_atleast_10_ticks == true) {
-        if (cmd_delta < 10) {
-            cmd->buttons &= ~1;
-        }
     }
 
     if (blue_aimbot_silent == false) {
@@ -213,7 +208,7 @@ static auto multipoint(Player *player, const int hitbox, const Math::Vector &cen
     Math::Vector centre_max_y = Math::Vector(max.x, Math::lerp(0.5, min.y, max.y), centre.z);
 
     if (blue_aimbot_debug_show_multipoint == true) {
-        Math::Vector straight_up = Math::Vector{0, 0, 90};
+        Math::Vector straight_up = centre + Math::Vector{0, 0, 90};
         Math::Vector cross       = centre.cross(straight_up);
 
         IFace<DebugOverlay>()->add_line_overlay(centre, cross, 0, 255, 255, true, 0);
@@ -316,7 +311,6 @@ auto Aimbot::visible_target(Entity *e, Math::Vector &pos, bool &visible) -> void
 }
 
 auto Aimbot::valid_target(Entity *e, bool &valid) -> void {
-    if (e->is_valid() == false) return;
 
     if (auto player = e->to_player()) {
         if (player->alive() == false) return;
@@ -345,7 +339,7 @@ auto Aimbot::flush_targets() -> void {
     can_find_targets = local_weapon != nullptr;
 
     targets.clear();
-    targets.resize(IFace<EntList>()->max_entity_index());
+    //targets.resize(IFace<EntList>()->max_entity_index());
 }
 
 auto Aimbot::finished_target(Target t) -> void {
@@ -356,9 +350,22 @@ auto Aimbot::finished_target(Target t) -> void {
     next_index += 1;
 }
 
+auto blue_aimbot_sorting_mode = Convar<int>("blue_aimbot_sorting_mode", 2, 0, 2, nullptr);
+
 auto Aimbot::sort_targets() -> void {
-    std::sort(std::execution::par_unseq, targets.begin(), targets.end(),
-              [](const Target &a, const Target &b) {
-                  return a.second.distance(local_view) < b.second.distance(local_view);
-              });
+    if (blue_aimbot_sorting_mode == 0)
+        std::sort(std::execution::par_unseq, targets.begin(), targets.end(),
+                  [](const Target &a, const Target &b) {
+                      return a.second.distance(local_view) < b.second.distance(local_view);
+                  });
+    else if (blue_aimbot_sorting_mode == 1)
+        std::sort(std::execution::par, targets.begin(), targets.end(),
+                  [](const Target &a, const Target &b) {
+                      return a.second.distance(local_view) < b.second.distance(local_view);
+                  });
+    else if (blue_aimbot_sorting_mode == 2)
+        std::sort(std::execution::seq, targets.begin(), targets.end(),
+                  [](const Target &a, const Target &b) {
+                      return a.second.distance(local_view) < b.second.distance(local_view);
+                  });
 }

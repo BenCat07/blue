@@ -17,8 +17,8 @@ auto Weapon::next_secondary_attack() -> float {
     return ::next_secondary_attack.get<float>(this);
 }
 
-auto Weapon::can_shoot() -> bool {
-    return IFace<Globals>()->curtime > next_primary_attack();
+auto Weapon::can_shoot(u32 tickbase) -> bool {
+    return tickbase * IFace<Globals>()->interval_per_tick > next_primary_attack();
 }
 
 auto Weapon::owner() -> Entity * {

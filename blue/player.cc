@@ -240,13 +240,16 @@ static auto get_hitboxes_internal(Player *player, const StudioModel *model, Play
 
         centre = rotated_min.lerp(rotated_max, 0.5);
 
-        hitboxes->centre[i]   = origin + centre;
-        hitboxes->min[i]      = origin + rotated_min;
-        hitboxes->max[i]      = origin + rotated_max;
+        hitboxes->centre[i] = origin + centre;
+        hitboxes->min[i]    = origin + rotated_min;
+        hitboxes->max[i]    = origin + rotated_max;
+
+#ifdef _DEBUG
         hitboxes->rotation[i] = rotation;
         hitboxes->origin[i]   = origin;
         hitboxes->raw_min[i]  = box->min;
         hitboxes->raw_max[i]  = box->max;
+#endif
     }
 
     return hitboxes_count;

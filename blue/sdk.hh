@@ -195,7 +195,7 @@ public:
             }
         };
 
-        EntityRange(EntList *parent) : parent(parent), max_entity(parent->max_entity_index() - 1) {}
+        EntityRange(EntList *parent) : parent(parent), max_entity(parent->max_entity_index()) {}
 
         explicit EntityRange(EntList *parent, u32 max_entity) : parent(parent), max_entity(max_entity) {}
 
@@ -205,7 +205,7 @@ public:
     };
 
     auto get_range() { return EntityRange(this); }
-    auto get_range(u32 max_entity) { return EntityRange(this, max_entity); }
+    auto get_range(u32 max_entity) { return EntityRange(this, max_entity + 1); }
 
 }; // namespace TF
 
