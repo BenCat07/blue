@@ -42,6 +42,7 @@ public:
 // Put ids here
 ID(CTFPlayer, 246);
 ID(CTFRevolver, 284);
+ID(CTFSniperRifle, 305);
 
 #undef ID
 

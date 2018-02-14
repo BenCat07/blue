@@ -1,6 +1,7 @@
 #include "stdafx.hh"
 
 #include "player.hh"
+#include "weapon.hh"
 
 #include "netvar.hh"
 #include "vfunc.hh"
@@ -60,6 +61,11 @@ auto        Player::team() -> int {
     return ::team.get<int>(this);
 }
 
+static auto cond = Netvar("DT_TFPlayer", "m_Shared", "m_nPlayerCond");
+auto        Player::cond() -> u32 & {
+    return ::cond.get<u32>(this);
+}
+
 auto Player::render_bounds() -> std::pair<Math::Vector, Math::Vector> {
     auto func = VFunc::Func<void (Player::*)(Math::Vector &, Math::Vector &)>(this, 20, 0, 0, 4);
 
@@ -101,8 +107,8 @@ auto        TF::Player::tick_base() -> int {
 }
 
 static auto active_weapon_handle = Netvar("DT_BaseCombatCharacter", "m_hActiveWeapon");
-auto        Player::active_weapon() -> Entity * {
-    return IFace<EntList>()->from_handle(::active_weapon_handle.get<EntityHandle>(this));
+auto        Player::active_weapon() -> Weapon * {
+    return static_cast<Weapon *>(IFace<EntList>()->from_handle(::active_weapon_handle.get<EntityHandle>(this)));
 }
 
 static auto sim_time = Netvar("DT_BaseEntity", "m_flSimulationTime");
@@ -120,15 +126,9 @@ auto        Player::cycle() -> float & {
     return ::cycle.get<float>(this);
 }
 
-static auto next_attack = Netvar("DT_BaseCombatCharacter", "bcc_localdata", "m_flNextAttack");
-auto        Player::next_attack_after_reload() -> float {
-    return ::next_attack.get<float>(this);
-}
-
-auto Player::can_shoot() -> bool {
-    auto player_time = tick_base() * IFace<Globals>()->interval_per_tick;
-
-    return player_time > next_attack_after_reload();
+static auto fov_time = Netvar("DT_BasePlayer", "m_flFOVTime");
+auto        Player::fov_time() -> float {
+    return ::fov_time.get<float>(this);
 }
 
 static auto render_origin = Netvar("DT_BaseEntity", "m_vecOrigin");

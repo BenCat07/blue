@@ -54,8 +54,11 @@ public:
         IFace<TF::Input>().set_from_pointer(**reinterpret_cast<TF::Input ***>(
             VFunc::get_func<u8 *>(IFace<TF::Client>().get(), 15, 0) + 0x2));
         IFace<TF::Cvar>().set_from_interface("vstdlib", "VEngineCvar");
+
+        // TODO linux signatures
         IFace<TF::ClientMode>().set_from_pointer(
-            *Signature::find_pattern<TF::ClientMode **>("client", "B9 ? ? ? ? A3 ? ? ? ? E8 ? ? ? ? 68 ? ? ? ? E8 ? ? ? ? 83 C4 04 C7 05", 1));
+            *Signature::find_pattern<TF::ClientMode **>(
+                "client", "B9 ? ? ? ? A3 ? ? ? ? E8 ? ? ? ? 68 ? ? ? ? E8 ? ? ? ? 83 C4 04 C7 05", 1));
         IFace<TF::ModelInfo>().set_from_interface("engine", "VModelInfoClient");
         IFace<TF::Trace>().set_from_interface("engine", "EngineTraceClient");
         IFace<TF::DebugOverlay>().set_from_interface("engine", "VDebugOverlay");
@@ -69,6 +72,9 @@ public:
 
         IFace<TF::GameMovement>().set_from_interface("client", "GameMovement");
         IFace<TF::Prediction>().set_from_interface("client", "VClientPrediction");
+        IFace<TF::MoveHelper>().set_from_pointer(
+            *Signature::find_pattern<TF::MoveHelper **>(
+                "client", "8B 0D ? ? ? ? 8B 01 FF 50 28 56", 2));
     }
     auto process_attach() -> void {
         Log::msg("process_attach()");

@@ -142,6 +142,10 @@ public:
     auto max_clients() -> u32 {
         return_virtual_func(max_clients, 21, 21, 21, 0);
     }
+
+    auto set_view_angles(const Math::Vector &v) -> void {
+        return_virtual_func(set_view_angles, 20, 20, 20, 0, v);
+    }
 };
 
 class EntList {
@@ -404,9 +408,11 @@ public:
     }
 };
 
+class MoveHelper;
+
 class Prediction {
 public:
-    auto setup_move(Player *player, UserCmd *ucmd, void *helper, void *move) -> void {
+    auto setup_move(Player *player, UserCmd *ucmd, MoveHelper *helper, void *move) -> void {
         return_virtual_func(setup_move, 18, 18, 18, 0, player, ucmd, helper, move);
     }
     void finish_move(Player *player, UserCmd *ucmd, void *move) {

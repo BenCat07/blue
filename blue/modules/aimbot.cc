@@ -3,6 +3,7 @@
 #include "aimbot.hh"
 
 #include "backtrack.hh"
+#include "class_id.hh"
 #include "entity.hh"
 #include "interface.hh"
 #include "player.hh"
@@ -79,12 +80,23 @@ auto Aimbot::init_all() -> void {
 auto Aimbot::update(float frametime) -> void {
 }
 
-// TODO: remove
-static auto blue_aimbot_aim_if_not_attack            = Convar<bool>{"blue_aimbot_aim_if_not_attack", true, nullptr};
-static auto blue_aimbot_disallow_attack_if_no_target = Convar<bool>{"blue_aimbot_disallow_attack_if_no_target", true, nullptr};
+// TODO: something something zoomed only convar
+static auto try_autoshoot(TF::UserCmd *cmd) {
+    auto autoshoot_allowed = false;
 
-static auto blue_aimbot_silent    = Convar<bool>{"blue_aimbot_silent", true, nullptr};
-static auto blue_aimbot_autoshoot = Convar<bool>{"blue_aimbot_autoshoot", false, nullptr};
+    // Only allow autoshoot when we are zoomed and can get headshots
+    if (local_weapon->client_class()->class_id == ClassID::CTFSniperRifle && (local_player->cond() & 2)) {
+        if ((local_player->tick_base() * IFace<Globals>()->interval_per_tick - local_player->fov_time()) >= 0.2)
+            autoshoot_allowed = true;
+    }
+
+    if (autoshoot_allowed) cmd->buttons |= 1;
+}
+
+static auto blue_aimbot_silent                       = Convar<bool>{"blue_aimbot_silent", true, nullptr};
+static auto blue_aimbot_autoshoot                    = Convar<bool>{"blue_aimbot_autoshoot", true, nullptr};
+static auto blue_aimbot_aim_if_not_attack            = Convar<bool>{"blue_aimbot_aim_if_not_attack", true, nullptr};
+static auto blue_aimbot_disallow_attack_if_no_target = Convar<bool>{"blue_aimbot_disallow_attack_if_no_target", false, nullptr};
 
 auto Aimbot::create_move(TF::UserCmd *cmd) -> void {
     if (local_weapon == nullptr) return;
@@ -95,8 +107,8 @@ auto Aimbot::create_move(TF::UserCmd *cmd) -> void {
     }
 
     if (targets.size() > 0 && targets[0].first != nullptr) {
-        Log::msg("[Aimbot] has target!");
-        IFace<DebugOverlay>()->add_box_overlay(targets[0].second, {-2, -2, -2}, {2, 2, 2}, {0, 0, 0}, 255, 255, 0, 50, 0);
+        Log::msg("[Aimbot] has target! (%d)", targets[0].first->index());
+        IFace<DebugOverlay>()->add_box_overlay(targets[0].second, {-2, -2, -2}, {2, 2, 2}, {0, 0, 0}, 255, 255, 0, 100, 0);
 
         Math::Vector delta      = targets[0].second - local_view;
         Math::Vector new_angles = delta.to_angle();
@@ -107,19 +119,17 @@ auto Aimbot::create_move(TF::UserCmd *cmd) -> void {
         if (local_weapon->can_shoot(local_player->tick_base())) {
             cmd->viewangles = new_angles;
 
-            if (blue_aimbot_autoshoot == true) cmd->buttons |= 1;
+            if (blue_aimbot_autoshoot == true) try_autoshoot(cmd);
 
             cmd->forwardmove = new_movement.x;
             cmd->sidemove    = new_movement.y;
 
             cmd->tick_count -= cmd_delta;
         }
+
+        if (blue_aimbot_silent == false) IFace<Engine>()->set_view_angles(new_angles);
     } else {
         if (blue_aimbot_disallow_attack_if_no_target == true) cmd->buttons &= ~1;
-    }
-
-    if (blue_aimbot_silent == false) {
-        // TODO: Engine needs SetViewAngles
     }
 }
 
@@ -148,7 +158,6 @@ static auto visible(Entity *e, const Math::Vector &position, const int hitbox) {
 
     ray.init(local_view, position);
 
-    // TODO: projectile prediction checks
     IFace<TF::Trace>()->trace_ray(ray, 0x46004003, &f, &result);
 
     //IFace<DebugOverlay>()->add_line_overlay(local_view, position, 0, 255, 0, true, -1.0f);
@@ -188,9 +197,7 @@ static auto multipoint_internal(Entity *e, float granularity, const int hitbox, 
 }
 
 // TODO: remove
-static auto blue_aimbot_debug_show_multipoint  = Convar<bool>{"blue_aimbot_debug_show_multipoint", false, nullptr};
-static auto blue_aimbot_debug_use_threads      = Convar<bool>{"blue_aimbot_debug_use_threads", true, nullptr};
-static auto blue_aimbot_multipoint_granularity = Convar<float>{"blue_aimbot_multipoint_granularity", 2, 0, 10, nullptr};
+static auto blue_aimbot_multipoint_granularity = Convar<float>{"blue_aimbot_multipoint_granularity", 0, 0, 10, nullptr};
 
 // TODO: there must be some kind of better conversion we can use here to get a straight line across the hitbox
 static auto multipoint(Player *player, const int hitbox, const Math::Vector &centre, const Math::Vector &min, const Math::Vector &max, Math::Vector &position_out) -> bool {
@@ -204,23 +211,13 @@ static auto multipoint(Player *player, const int hitbox, const Math::Vector &cen
     Math::Vector centre_min_x = Math::Vector(Math::lerp(0.5, min.x, max.x), min.y, centre.z);
     Math::Vector centre_max_x = Math::Vector(Math::lerp(0.5, min.x, max.x), max.y, centre.z);
 
+    if (multipoint_internal(player, granularity, hitbox, centre, centre_min_x, centre_max_x, position_out) == true)
+        return true;
+
     Math::Vector centre_min_y = Math::Vector(min.x, Math::lerp(0.5, min.y, max.y), centre.z);
     Math::Vector centre_max_y = Math::Vector(max.x, Math::lerp(0.5, min.y, max.y), centre.z);
 
-    if (blue_aimbot_debug_show_multipoint == true) {
-        Math::Vector straight_up = centre + Math::Vector{0, 0, 90};
-        Math::Vector cross       = centre.cross(straight_up);
-
-        IFace<DebugOverlay>()->add_line_overlay(centre, cross, 0, 255, 255, true, 0);
-        IFace<DebugOverlay>()->add_line_overlay(centre, straight_up, 0, 255, 255, true, 0);
-
-        IFace<DebugOverlay>()->add_line_overlay(centre_min_x, centre_max_x, 255, 0, 0, true, 0);
-        IFace<DebugOverlay>()->add_line_overlay(centre_min_y, centre_max_y, 255, 0, 0, true, 0);
-    }
-
-    if (multipoint_internal(player, granularity, hitbox, centre, centre_min_x, centre_max_x, position_out) == true)
-        return true;
-    else if (multipoint_internal(player, granularity, hitbox, centre, centre_min_y, centre_max_y, position_out) == true)
+    if (multipoint_internal(player, granularity, hitbox, centre, centre_min_y, centre_max_y, position_out) == true)
         return true;
 
     return false;
@@ -238,11 +235,9 @@ static auto find_best_box() {
     }
 }
 
-static auto blue_aimbot_enable_backtrack = Convar<bool>{"blue_aimbot_enable_backtrack", false, nullptr};
+static auto blue_aimbot_enable_backtrack = Convar<bool>{"blue_aimbot_enable_backtrack", true, nullptr};
 
 auto Aimbot::visible_target(Entity *e, Math::Vector &pos, bool &visible) -> void {
-    if (local_weapon == nullptr) return;
-
     // TODO: should entity have a to_player_nocheck() method
     // as we already know at this point that this is a player...
     auto player = e->to_player();
@@ -311,10 +306,17 @@ auto Aimbot::visible_target(Entity *e, Math::Vector &pos, bool &visible) -> void
 }
 
 auto Aimbot::valid_target(Entity *e, bool &valid) -> void {
+    if (can_find_targets == false) {
+        valid = false;
+        return;
+    }
 
     if (auto player = e->to_player()) {
         if (player->alive() == false) return;
         if (local_team == player->team()) return;
+
+        IFace<DebugOverlay>()->add_entity_text_overlay(e->index(), 0, 0, 255, 255, 255, 255, "valid");
+        IFace<DebugOverlay>()->add_entity_text_overlay(e->index(), 1, 0, 255, 255, 255, 255, "%d", player->index());
 
         valid = true;
     }
@@ -339,33 +341,22 @@ auto Aimbot::flush_targets() -> void {
     can_find_targets = local_weapon != nullptr;
 
     targets.clear();
-    //targets.resize(IFace<EntList>()->max_entity_index());
+    targets.resize(IFace<EntList>()->max_entity_index());
 }
 
 auto Aimbot::finished_target(Target t) -> void {
     assert(t.first);
+
+    IFace<DebugOverlay>()->add_entity_text_overlay(t.first->index(), 2, 0, 255, 255, 255, 255, "finished");
 
     targets[next_index] = t;
 
     next_index += 1;
 }
 
-auto blue_aimbot_sorting_mode = Convar<int>("blue_aimbot_sorting_mode", 2, 0, 2, nullptr);
-
 auto Aimbot::sort_targets() -> void {
-    if (blue_aimbot_sorting_mode == 0)
-        std::sort(std::execution::par_unseq, targets.begin(), targets.end(),
-                  [](const Target &a, const Target &b) {
-                      return a.second.distance(local_view) < b.second.distance(local_view);
-                  });
-    else if (blue_aimbot_sorting_mode == 1)
-        std::sort(std::execution::par, targets.begin(), targets.end(),
-                  [](const Target &a, const Target &b) {
-                      return a.second.distance(local_view) < b.second.distance(local_view);
-                  });
-    else if (blue_aimbot_sorting_mode == 2)
-        std::sort(std::execution::seq, targets.begin(), targets.end(),
-                  [](const Target &a, const Target &b) {
-                      return a.second.distance(local_view) < b.second.distance(local_view);
-                  });
+    std::sort(std::execution::seq, targets.begin(), targets.end(),
+              [](const Target &a, const Target &b) {
+                  return a.second.distance(local_view) < b.second.distance(local_view);
+              });
 }

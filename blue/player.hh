@@ -40,13 +40,13 @@ public:
 
     auto hitboxes(PlayerHitboxes *hitboxes_out, bool create_pose) -> u32;
 
-    auto can_shoot() -> bool;
-
     // netvars
     auto health() -> int &;
 
     auto alive() -> bool;
     auto team() -> int;
+
+    auto cond() -> u32 &;
 
     auto view_offset() -> Math::Vector &;
 
@@ -58,12 +58,11 @@ public:
     auto cycle() -> float &;
     auto sequence() -> int &;
 
-    auto next_attack_after_reload() -> float;
+    auto fov_time() -> float;
 
     auto render_origin() -> Math::Vector &;
 
-    // TODO: return Weapon *
-    auto active_weapon() -> Entity *;
+    auto active_weapon() -> Weapon *;
 
     // virtual functions
     auto origin() -> Math::Vector &;

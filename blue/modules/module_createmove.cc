@@ -154,14 +154,17 @@ static auto local_player_prediction(Player *local, UserCmd *cmd) {
     auto old_frame_time = IFace<Globals>()->frametime;
     auto old_tick_count = IFace<Globals>()->tickcount;
 
-    IFace<Globals>()->curtime   = local->tick_base() * IFace<Globals>()->interval_per_tick;
-    IFace<Globals>()->frametime = IFace<Globals>()->interval_per_tick;
+    IFace<Globals>()->curtime = local->tick_base() * IFace<Globals>()->interval_per_tick;
+
+    // If we are already not able to fit enough ticks into a frame account for this!!
+    auto simulation_interval    = std::max(IFace<Globals>()->interval_per_tick, old_frame_time);
+    IFace<Globals>()->frametime = simulation_interval;
     IFace<Globals>()->tickcount = local->tick_base();
 
     // Set the current usercmd and run prediction
     local->set<UserCmd *, 0x107C>(cmd);
 
-    IFace<Prediction>()->setup_move(local, cmd, nullptr, move_data_buffer);
+    IFace<Prediction>()->setup_move(local, cmd, IFace<MoveHelper>().get(), move_data_buffer);
     IFace<GameMovement>()->process_movement(local, move_data_buffer);
     IFace<Prediction>()->finish_move(local, cmd, move_data_buffer);
 
