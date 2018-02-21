@@ -13,12 +13,9 @@
 
 #include "convar.hh"
 
-#include "modules/blue_module_list.hh"
-
-DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, BlueModule::Invoke, update);
-DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, BlueModule::Invoke, level_shutdown);
-DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, BlueModule::Invoke, level_startup);
-DEFINE_LIST_CALL_FUNCTION_RECURSIVE(ModuleList, BlueModule::Invoke, init_all);
+#include "modules\aimbot.hh"
+#include "modules\backtrack.hh"
+#include "modules\module_createmove.hh"
 
 class BlueCore : public GameSystem {
     bool inited = false;
@@ -90,7 +87,7 @@ public:
         Convar_Base::init_all();
 
         // call our modules init
-        ModuleList_call_init_all();
+        Aimbot::init_all();
 
         // at this point we are now inited and ready to go!
         inited = true;
@@ -112,12 +109,15 @@ public:
         // This needs to be done here becuase classids arent initialised before we are in game
         TF::ClassID::InternalChecker::ClassIDChecker::check_all_correct();
 
-        ModuleList_call_level_startup();
+        CreateMoveModule::level_startup();
+        Backtrack::level_startup();
     }
     auto level_shutdown_pre_clear_steam_api_context() -> void override { Log::msg("level_shutdown_pre_clear_steam_api_context"); }
     auto level_shutdown_pre_entity() -> void override {
         Log::msg("level_shutdown_pre_entity");
-        ModuleList_call_level_shutdown();
+
+        Backtrack::level_shutdown();
+        CreateMoveModule::level_shutdown();
     }
     auto level_shutdown_post_entity() -> void override { Log::msg("level_shutdown_post_entity"); }
 
@@ -128,7 +128,8 @@ public:
     auto update([[maybe_unused]] float frametime) -> void override {
         if (inited != true || IFace<TF::Engine>()->in_game() != true) return;
 
-        ModuleList_call_update(frametime);
+        Aimbot::update(frametime);
+        CreateMoveModule::update(frametime);
     }
 
     BlueCore() {

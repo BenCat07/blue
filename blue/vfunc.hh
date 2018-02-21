@@ -49,7 +49,9 @@ public:
          u32         index_linux,
          u32         index_osx,
          u32         offset_windows) {
-        assert(instance != nullptr);
+        // NOTE: this assert is disabled as it is in some really tight loops!
+        // This should never go off and if it does you will get a nice and obvious fatal crash...
+        //assert(instance != nullptr);
 
         auto index = 0u;
         if constexpr (BluePlatform::windows())

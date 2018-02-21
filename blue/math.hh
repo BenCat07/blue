@@ -22,7 +22,7 @@ inline auto to_degrees(float x) {
 
 template <typename T>
 T lerp(float percent, T min, T max) {
-    return min + (percent * (max - min));
+    return min + ((max - min) * percent);
 }
 
 class Vector {
@@ -34,10 +34,10 @@ public:
     inline static auto zero() { return Vector(0); }
     inline static auto invalid() { return Vector(FLT_MAX); }
 
-    Vector() {}
-    Vector(float x, float y, float z) : x(x), y(y), z(z) {}
-    Vector(float v) : x(v), y(v), z(v) {}
-    Vector(const Vector &v) : x(v.x), y(v.y), z(v.z) {}
+    inline Vector() {}
+    inline Vector(float x, float y, float z) : x(x), y(y), z(z) {}
+    inline Vector(float v) : x(v), y(v), z(v) {}
+    inline Vector(const Vector &v) : x(v.x), y(v.y), z(v.z) {}
 
     // equality
     inline auto operator==(const Vector &v) const {
