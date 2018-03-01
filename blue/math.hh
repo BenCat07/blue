@@ -22,7 +22,7 @@ inline auto to_degrees(float x) {
 
 template <typename T>
 T lerp(float percent, T min, T max) {
-    return min + (percent * (max - min));
+    return min + ((max - min) * percent);
 }
 
 class Vector {

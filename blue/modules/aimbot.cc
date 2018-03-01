@@ -7,10 +7,12 @@
 #include "entity.hh"
 #include "interface.hh"
 #include "player.hh"
+#include "profile.hh"
 #include "sdk.hh"
 #include "weapon.hh"
 
-#include "blue_target_list.hh"
+#include "module_createmove.hh"
+
 #include "convar.hh"
 
 #include "blue_threadpool.hh"
@@ -26,7 +28,7 @@ using namespace BlueTarget;
 
 namespace {
 std::vector<Target> targets;
-std::atomic_uint    next_index;
+u32                 next_index;
 
 Player *local_player;
 Weapon *local_weapon;
@@ -107,7 +109,6 @@ auto Aimbot::create_move(TF::UserCmd *cmd) -> void {
     }
 
     if (targets.size() > 0 && targets[0].first != nullptr) {
-        Log::msg("[Aimbot] has target! (%d)", targets[0].first->index());
         IFace<DebugOverlay>()->add_box_overlay(targets[0].second, {-2, -2, -2}, {2, 2, 2}, {0, 0, 0}, 255, 255, 0, 100, 0);
 
         Math::Vector delta      = targets[0].second - local_view;
@@ -160,9 +161,6 @@ static auto visible(Entity *e, const Math::Vector &position, const int hitbox) {
 
     IFace<TF::Trace>()->trace_ray(ray, 0x46004003, &f, &result);
 
-    //IFace<DebugOverlay>()->add_line_overlay(local_view, position, 0, 255, 0, true, -1.0f);
-    //IFace<DebugOverlay>()->add_box_overlay(result.end_pos, {-2, -2, -2}, {2, 2, 2}, {0, 0, 0}, 255, 0, 0, 255, -1.0f);
-
     if (blue_aimbot_pedantic_mode == true) {
         if (result.entity == e && result.hitbox == hitbox) return true;
     } else if (result.entity == e) {
@@ -202,7 +200,6 @@ static auto blue_aimbot_multipoint_granularity = Convar<float>{"blue_aimbot_mult
 // TODO: there must be some kind of better conversion we can use here to get a straight line across the hitbox
 static auto multipoint(Player *player, const int hitbox, const Math::Vector &centre, const Math::Vector &min, const Math::Vector &max, Math::Vector &position_out) -> bool {
     // create a divisor out of the granularity
-    // TODO: precalculate??
     float divisor = blue_aimbot_multipoint_granularity;
     if (divisor == 0) return false;
     float granularity = 1.0f / divisor;
@@ -245,7 +242,7 @@ auto Aimbot::visible_target(Entity *e, Math::Vector &pos, bool &visible) -> void
     auto player = e->to_player();
 
     PlayerHitboxes hitboxes;
-    u32            hitboxes_count = player->hitboxes(&hitboxes, false);
+    auto           hitboxes_count = player->hitboxes(&hitboxes, false);
 
     // Tell backtrack about these hitboxes
     Backtrack::update_player_hitboxes(player, &hitboxes, hitboxes_count);
@@ -317,9 +314,6 @@ auto Aimbot::valid_target(Entity *e, bool &valid) -> void {
         if (player->alive() == false) return;
         if (local_team == player->team()) return;
 
-        IFace<DebugOverlay>()->add_entity_text_overlay(e->index(), 0, 0, 255, 255, 255, 255, "valid");
-        IFace<DebugOverlay>()->add_entity_text_overlay(e->index(), 1, 0, 255, 255, 255, 255, "%d", player->index());
-
         valid = true;
     }
 
@@ -347,7 +341,7 @@ auto Aimbot::flush_targets() -> void {
 }
 
 auto Aimbot::finished_target(Target t) -> void {
-    assert(t.first);
+    assert(t.first != nullptr);
 
     IFace<DebugOverlay>()->add_entity_text_overlay(t.first->index(), 2, 0, 255, 255, 255, 255, "finished");
 
@@ -359,6 +353,10 @@ auto Aimbot::finished_target(Target t) -> void {
 auto Aimbot::sort_targets() -> void {
     std::sort(std::execution::seq, targets.begin(), targets.end(),
               [](const Target &a, const Target &b) {
+                  // Ignore null targets (artifact of having a resized vector mess
+                  if (a.first == nullptr) return false;
+                  if (b.first == nullptr) return false;
+
                   return a.second.distance(local_view) < b.second.distance(local_view);
               });
 }
