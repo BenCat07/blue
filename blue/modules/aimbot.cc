@@ -207,9 +207,11 @@ static auto multipoint(Player *player, const int hitbox, const Math::Vector &cen
     if (divisor == 0) return false;
     float granularity = 1.0f / divisor;
 
+    auto new_x = Math::lerp(0.5, min.x, max.x);
+
     // Create a horizontal cross shape out of this box instead of top left bottom right or visa versa
-    Math::Vector centre_min_x = Math::Vector(Math::lerp(0.5, min.x, max.x), min.y, centre.z);
-    Math::Vector centre_max_x = Math::Vector(Math::lerp(0.5, min.x, max.x), max.y, centre.z);
+    Math::Vector centre_min_x = Math::Vector(new_x, min.y, centre.z);
+    Math::Vector centre_max_x = Math::Vector(new_x, max.y, centre.z);
 
     if (multipoint_internal(player, granularity, hitbox, centre, centre_min_x, centre_max_x, position_out) == true)
         return true;
