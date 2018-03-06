@@ -91,7 +91,6 @@ workspace "Blue"
         
         files { "boverlay/*.hh", "boverlay/*.cc" }
         filter {}
---]]
 
     project "testbed"
         filter "system:linux"
@@ -110,4 +109,4 @@ workspace "Blue"
             
         files { "testbed/*.hh", "testbed/*.cc" }    
         filter {}
-
+--]]
