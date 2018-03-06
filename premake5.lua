@@ -57,7 +57,7 @@ workspace "Blue"
         files { "blue/*.hh", "blue/*.cc",
                 "blue/modules/*.hh", "blue/modules/*.cc" }
 
-    
+--[[    
     project "boverlay"
         filter "system:linux"
             toolset "clang"
@@ -91,6 +91,7 @@ workspace "Blue"
         
         files { "boverlay/*.hh", "boverlay/*.cc" }
         filter {}
+--]]
 
     project "testbed"
         filter "system:linux"
