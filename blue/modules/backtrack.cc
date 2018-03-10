@@ -152,25 +152,7 @@ auto Backtrack::create_move_pre_predict(UserCmd *cmd) -> void {
 
         auto layer_max = std::min<u32>(backtrack_max_anim_layers, layer_count);
         for (u32 i = 0; i < layer_max; ++i) {
-            // Isnt our animationlayer exactly the same as the games....
-            auto  layer        = player->anim_layer(i);
-            auto &layer_record = new_record.animation_layers[i];
-
-            // TODO: memcpy?
-            layer_record.sequence = layer.sequence;
-            layer_record.cycle    = layer.cycle;
-            layer_record.weight   = layer.weight;
-            layer_record.order    = layer.order;
-
-            layer_record.layer_anim_time = layer.layer_anim_time;
-            layer_record.layer_fade_time = layer.layer_fade_time;
-
-            layer_record.blend_in  = layer.blend_in;
-            layer_record.blend_out = layer.blend_out;
-
-            layer_record.client_blend = layer.client_blend;
-
-            layer_record.playback_rate = layer.playback_rate;
+            new_record.animation_layers[i] = player->anim_layer(i);
         }
 
         // TODO: pose parameters (are these even important??)
@@ -202,17 +184,17 @@ auto Backtrack::create_move(TF::UserCmd *cmd) -> void {
 
             IFace<DebugOverlay>()->add_text_overlay(record.origin, 0, "%d", record.this_tick);
 
-            // if (record.this_tick == cmd->tick_count)
-            //     for (u32 i = 0; i < record.max_hitboxes; i++) {
-            //         auto &hitboxes = record.hitboxes;
+            if (record.this_tick == cmd->tick_count)
+                for (u32 i = 0; i < record.max_hitboxes; i++) {
+                    auto &hitboxes = record.hitboxes;
 
-            //         int j = (record.this_tick % 8);
-            //         int r = (int)(255.0f * hullcolor[j].x);
-            //         int g = (int)(255.0f * hullcolor[j].y);
-            //         int b = (int)(255.0f * hullcolor[j].z);
+                    int j = (record.this_tick % 8);
+                    int r = (int)(255.0f * hullcolor[j].x);
+                    int g = (int)(255.0f * hullcolor[j].y);
+                    int b = (int)(255.0f * hullcolor[j].z);
 
-            //         IFace<DebugOverlay>()->add_box_overlay(hitboxes.origin[i], hitboxes.raw_min[i], hitboxes.raw_max[i], hitboxes.rotation[i], r, g, b, 100, 0);
-            //     }
+                    IFace<DebugOverlay>()->add_box_overlay(hitboxes.origin[i], hitboxes.raw_min[i], hitboxes.raw_max[i], hitboxes.rotation[i], r, g, b, 100, 0);
+                }
         }
     }
 }
@@ -231,24 +213,9 @@ static auto restore_player_to_record(TF::Player *p, const BacktrackRecord &r) {
     auto layer_count = p->anim_layer_count();
     auto layer_max   = std::min<u32>(backtrack_max_anim_layers, layer_count);
 
+    // Copy animation layers across
     for (u32 i = 0; i < layer_max; ++i) {
-        auto        layer        = p->anim_layer(i);
-        const auto &layer_record = r.animation_layers[i];
-
-        // TODO: Maybe just memcpy?
-        layer.sequence = layer_record.sequence;
-        layer.cycle    = layer_record.cycle;
-        layer.weight   = layer_record.weight;
-        layer.order    = layer_record.order;
-
-        layer.layer_anim_time = layer_record.layer_anim_time;
-        layer.layer_fade_time = layer_record.layer_fade_time;
-
-        layer.blend_in     = layer_record.blend_in;
-        layer.blend_out    = layer_record.blend_out;
-        layer.client_blend = layer_record.client_blend;
-
-        layer.playback_rate = layer_record.playback_rate;
+        p->anim_layer(i) = r.animation_layers[i];
     }
 
     // Because we changed the animation we need to tell the
